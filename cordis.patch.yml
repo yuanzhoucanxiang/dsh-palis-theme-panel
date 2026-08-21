@@ -1,0 +1,10 @@
+# @dsh-local/palis-theme-panel bundle patch
+#
+# This file is the `dsh.bundle.patch` layer of the package: the profile boot
+# merges this patch (a single `insert` of the plugin row) so the kernel mounts
+# the PALIS theme panel plugin. The id matches the plugin's exported `name`
+# (`palis-theme-panel`); the name is the package to load.
+- insert:
+    - id: palis-theme-panel
+      name: '@dsh-local/palis-theme-panel'
+      config: {}

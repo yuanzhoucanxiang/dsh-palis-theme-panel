@@ -129,36 +129,64 @@ const ART_STARS = [
   '</svg>',
 ].join('')
 
-/** 等距投影地球贴图（2048x1024，横向无缝平铺）：湍流生成的有机陆块（软边、低对比）
- *  + 云层 + 细半调网点 + 经纬网。client 的球面引擎按正交投影逐像素采样。 */
+/** 等距投影地球贴图（2048x1024，横向无缝平铺）：湍流生成的有机陆块（梯田化多层）
+ *  + 云层 + 多尺度半调网点（细/中/粗三层 + 陆块密度调制层）+ 经纬网 + 13 条加密等高线
+ *  + 纵向波纹线（编织感）+ 数据刻度标记。client 的球面引擎按正交投影逐像素采样。 */
 export const ART_EARTH_MAP = [
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2048 1024'>",
   '<defs>',
   "<filter id='land' x='-15%' y='-15%' width='130%' height='130%'>",
   "<feTurbulence type='fractalNoise' baseFrequency='0.0035 0.005' numOctaves='5' seed='3'/>",
   "<feColorMatrix type='saturate' values='0'/>",
-  "<feComponentTransfer><feFuncA type='table' tableValues='0 0 0 .9 .6 .28'/></feComponentTransfer>",
+  /* 梯田化 7 档阶梯（原 6 档）：更多地形台阶，海岸线层次更碎 */
+  "<feComponentTransfer><feFuncA type='table' tableValues='0 0 0 1 .8 .55 .32'/></feComponentTransfer>",
   '</filter>',
   "<filter id='soft'><feGaussianBlur stdDeviation='2.5'/></filter>",
   "<filter id='cloud'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.009' numOctaves='6' seed='7'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 .5 .22'/></feComponentTransfer></filter>",
   "<filter id='wisp'><feTurbulence type='fractalNoise' baseFrequency='0.025 0.035' numOctaves='4' seed='11'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 .28 .12'/></feComponentTransfer></filter>",
   "<filter id='d'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter>",
-  "<filter id='disloc'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.02' numOctaves='2' seed='17' result='t'/><feDisplacementMap in='SourceGraphic' in2='t' scale='60' xChannelSelector='R' yChannelSelector='G'/></filter>",
-  "<pattern id='h' width='4' height='4' patternUnits='userSpaceOnUse'><circle cx='1.2' cy='1.2' r='0.6' fill='rgba(236,236,236,.07)'/></pattern>",
+  /* 位移加强 60→85：等高线/波纹线更锯齿，地形感更野 */
+  "<filter id='disloc'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.02' numOctaves='2' seed='17' result='t'/><feDisplacementMap in='SourceGraphic' in2='t' scale='85' xChannelSelector='R' yChannelSelector='G'/></filter>",
+  "<pattern id='h' width='4' height='4' patternUnits='userSpaceOnUse'><circle cx='1.2' cy='1.2' r='0.7' fill='rgba(236,236,236,.18)'/></pattern>",
+  /* 多尺度网点（参考 PALIS 总目录屏：密度随明度走）——细粒底噪/粗疏暗区粒/陆块调制加密粒 */
+  "<pattern id='h2' width='9' height='9' patternUnits='userSpaceOnUse'><circle cx='2' cy='2' r='1.1' fill='rgba(236,236,236,.1)'/></pattern>",
+  "<pattern id='h3' width='3' height='3' patternUnits='userSpaceOnUse'><circle cx='.8' cy='.8' r='.45' fill='rgba(236,236,236,.07)'/></pattern>",
+  "<pattern id='hm' width='5' height='5' patternUnits='userSpaceOnUse'><circle cx='1.4' cy='1.4' r='1' fill='rgba(236,236,236,.3)'/></pattern>",
+  /* 陆块蒙版：陆块湍流的明度×阶梯 alpha 作 mask → 网点在陆地密、海洋疏 */
+  "<mask id='ml' maskUnits='userSpaceOnUse' x='0' y='0' width='2048' height='1024'><rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' fill='white'/></mask>",
   '</defs>',
   /* 有机陆块：阈值化湍流 → 碎片化"海岸线"，两层叠加 + 模糊软边，低对比 */
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.5'/>",
-  "<g filter='url(%23soft)'><rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.22'/></g>",
-  /* 等高线：位移后的水平波纹线（起止同 y，横向无缝）→ 地形等高感 */
-  "<g stroke='rgba(226,236,246,.10)' stroke-width='1' fill='none' filter='url(%23disloc)'>",
-  "<path d='M0,140 C256,112 512,168 768,140 S1280,112 1536,148 S1792,128 2048,140'/>",
-  "<path d='M0,240 C256,212 512,268 768,240 S1280,212 1536,248 S1792,228 2048,240'/>",
-  "<path d='M0,340 C256,312 512,368 768,340 S1280,312 1536,348 S1792,328 2048,340'/>",
-  "<path d='M0,540 C256,512 512,568 768,540 S1280,512 1536,548 S1792,528 2048,540'/>",
-  "<path d='M0,640 C256,612 512,668 768,640 S1280,612 1536,648 S1792,628 2048,640'/>",
-  "<path d='M0,740 C256,712 512,768 768,740 S1280,712 1536,748 S1792,728 2048,740'/>",
+  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.55'/>",
+  "<g filter='url(%23soft)'><rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.26'/></g>",
+  /* 等高线：位移后的水平波纹线（起止同 y，横向无缝）→ 地形等高感（加密为 13 条） */
+  "<g stroke='rgba(226,236,246,.3)' stroke-width='1.2' fill='none' filter='url(%23disloc)'>",
+  "<path d='M0,40 C256,18 512,62 768,40 S1280,18 1536,44 S1792,24 2048,40'/>",
+  "<path d='M0,116 C256,94 512,138 768,116 S1280,94 1536,120 S1792,100 2048,116'/>",
+  "<path d='M0,192 C256,170 512,214 768,192 S1280,170 1536,196 S1792,176 2048,192'/>",
+  "<path d='M0,268 C256,246 512,290 768,268 S1280,246 1536,272 S1792,252 2048,268'/>",
+  "<path d='M0,344 C256,322 512,366 768,344 S1280,322 1536,348 S1792,328 2048,344'/>",
+  "<path d='M0,420 C256,398 512,442 768,420 S1280,398 1536,424 S1792,404 2048,420'/>",
+  "<path d='M0,496 C256,474 512,518 768,496 S1280,474 1536,500 S1792,480 2048,496'/>",
+  "<path d='M0,572 C256,550 512,594 768,572 S1280,550 1536,576 S1792,556 2048,572'/>",
+  "<path d='M0,648 C256,626 512,670 768,648 S1280,626 1536,652 S1792,632 2048,648'/>",
+  "<path d='M0,724 C256,702 512,746 768,724 S1280,702 1536,728 S1792,708 2048,724'/>",
+  "<path d='M0,800 C256,778 512,822 768,800 S1280,778 1536,804 S1792,784 2048,800'/>",
+  "<path d='M0,876 C256,854 512,898 768,876 S1280,854 1536,880 S1792,860 2048,876'/>",
+  "<path d='M0,952 C256,930 512,974 768,952 S1280,930 1536,956 S1792,936 2048,952'/>",
   '</g>',
-  "<g stroke='rgba(236,236,236,.04)' stroke-width='1'>",
+  /* 纵向波纹线：与等高线正交的"编织"第二方向（纵向线不跨横向接缝，天然无缝） */
+  "<g stroke='rgba(226,236,246,.2)' stroke-width='1' fill='none' filter='url(%23disloc)'>",
+  "<path d='M128,0 C112,128 144,256 128,384 S112,640 128,768 S144,896 128,1024'/>",
+  "<path d='M384,0 C368,128 400,256 384,384 S368,640 384,768 S400,896 384,1024'/>",
+  "<path d='M640,0 C624,128 656,256 640,384 S624,640 640,768 S656,896 640,1024'/>",
+  "<path d='M896,0 C880,128 912,256 896,384 S880,640 896,768 S912,896 896,1024'/>",
+  "<path d='M1152,0 C1136,128 1168,256 1152,384 S1136,640 1152,768 S1168,896 1152,1024'/>",
+  "<path d='M1408,0 C1392,128 1424,256 1408,384 S1392,640 1408,768 S1424,896 1408,1024'/>",
+  "<path d='M1664,0 C1648,128 1680,256 1664,384 S1648,640 1664,768 S1680,896 1664,1024'/>",
+  "<path d='M1920,0 C1904,128 1936,256 1920,384 S1904,640 1920,768 S1936,896 1920,1024'/>",
+  '</g>',
+  /* 经纬网（几何基准） */
+  "<g stroke='rgba(236,236,236,.12)' stroke-width='1'>",
   "<line x1='256' y1='0' x2='256' y2='1024'/><line x1='512' y1='0' x2='512' y2='1024'/>",
   "<line x1='768' y1='0' x2='768' y2='1024'/><line x1='1024' y1='0' x2='1024' y2='1024'/>",
   "<line x1='1280' y1='0' x2='1280' y2='1024'/><line x1='1536' y1='0' x2='1536' y2='1024'/>",
@@ -166,14 +194,28 @@ export const ART_EARTH_MAP = [
   "<line x1='0' y1='256' x2='2048' y2='256'/><line x1='0' y1='512' x2='2048' y2='512'/>",
   "<line x1='0' y1='768' x2='2048' y2='768'/>",
   '</g>',
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23cloud)' opacity='.26'/>",
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23wisp)' opacity='.11'/>",
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23d)' opacity='.05'/>",
+  /* 数据刻度：散布表面的测量十字 + 标记环（随球面卷曲旋转） */
+  "<g stroke='rgba(226,236,246,.36)' stroke-width='1.2' fill='none'>",
+  "<path d='M388,169 h14 M395,162 v14'/><path d='M753,293 h14 M760,286 v14'/>",
+  "<path d='M1223,203 h14 M1230,196 v14'/><path d='M1533,463 h14 M1540,456 v14'/>",
+  "<path d='M893,593 h14 M900,586 v14'/><path d='M293,693 h14 M300,686 v14'/>",
+  "<path d='M1323,773 h14 M1330,766 v14'/><path d='M1803,613 h14 M1810,606 v14'/>",
+  "<path d='M548,369 h14 M555,362 v14'/><path d='M1073,93 h14 M1080,86 v14'/>",
+  "<path d='M1443,843 h14 M1450,836 v14'/><path d='M683,903 h14 M690,896 v14'/>",
+  "<circle cx='1660' cy='400' r='5'/><circle cx='610' cy='470' r='4'/><circle cx='1080' cy='640' r='4'/>",
+  '</g>',
+  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23cloud)' opacity='.3'/>",
+  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23wisp)' opacity='.16'/>",
+  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23d)' opacity='.15'/>",
   '<rect x=\'0\' y=\'0\' width=\'2048\' height=\'1024\' fill=\'url(%23h)\'/>',
+  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23h3)'/>",
+  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23h2)'/>",
+  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23hm)' mask='url(%23ml)'/>",
   '</svg>',
 ].join('')
 
-/** 环形轨道图：同心虚线环 + 四向节点 + 中心徽记（贴对话区/欢迎屏居中）。 */
+/** 环形轨道图：同心虚线环 + 中心徽记（贴对话区/欢迎屏居中）。
+ *  环上 8 个节点白点不在此绘制——由 client 声纳层的行星点接替（沿原半径公转）。 */
 const ART_ORBIT = [
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000'>",
   "<g fill='none' stroke='rgba(236,236,236,.13)' stroke-width='1.5'>",
@@ -181,16 +223,10 @@ const ART_ORBIT = [
   "<circle cx='500' cy='500' r='348' stroke-dasharray='1 7'/>",
   "<circle cx='500' cy='500' r='264' stroke-dasharray='2 13'/>",
   '</g>',
-  "<g fill='rgba(236,236,236,.32)'>",
-  "<circle cx='500' cy='70' r='4'/><circle cx='930' cy='500' r='4'/>",
-  "<circle cx='500' cy='930' r='4'/><circle cx='70' cy='500' r='4'/>",
-  "<circle cx='708' cy='292' r='3'/><circle cx='292' cy='292' r='3'/>",
-  "<circle cx='708' cy='708' r='3'/><circle cx='292' cy='708' r='3'/>",
-  '</g>',
-  "<circle cx='500' cy='500' r='184' fill='none' stroke='rgba(43,95,217,.34)' stroke-width='1.5' stroke-dasharray='3 9'/>",
-  "<circle cx='500' cy='500' r='96' fill='rgba(236,236,236,.04)' stroke='rgba(236,236,236,.16)' stroke-width='1.5'/>",
-  "<circle cx='500' cy='500' r='30' fill='none' stroke='rgba(236,236,236,.42)' stroke-width='2'/>",
-  "<circle cx='500' cy='500' r='10' fill='rgba(236,236,236,.45)'/>",
+  "<circle cx='500' cy='500' r='184' fill='none' stroke='rgba(43,95,217,.3)' stroke-width='1.5' stroke-dasharray='3 9'/>",
+  "<circle cx='500' cy='500' r='96' fill='rgba(236,236,236,.018)' stroke='rgba(236,236,236,.1)' stroke-width='1.5'/>",
+  "<circle cx='500' cy='500' r='30' fill='none' stroke='rgba(236,236,236,.3)' stroke-width='2'/>",
+  "<circle cx='500' cy='500' r='10' fill='rgba(236,236,236,.34)'/>",
   '</svg>',
 ].join('')
 
@@ -270,6 +306,14 @@ export const PALIS_CSS = [
   'html[data-palis-theme][data-palis-intensity="low"]{--palis-scan-alpha:.015;--palis-noise-alpha:.012;--palis-vignette-alpha:.14}',
   'html[data-palis-theme][data-palis-intensity="mid"]{--palis-scan-alpha:.028;--palis-noise-alpha:.022;--palis-vignette-alpha:.22}',
   'html[data-palis-theme][data-palis-intensity="high"]{--palis-scan-alpha:.045;--palis-noise-alpha:.035;--palis-vignette-alpha:.34}',
+
+  /* ── ①b 动效节奏：终端气质的快起稳落（快攻缓收）。左右侧栏滑动、面板挤压、
+     控件变色全挂内核这组令牌——一处覆盖全局同步，衔接自然一致；
+     prefers-reduced-motion 分支在内核/插件侧照旧生效（它们杀的是 transition 本身）── */
+  'html[data-palis-theme]{',
+  '--ds-transition-duration:.16s;--ds-transition-duration-fast:.08s;--ds-transition-duration-slow:.24s;',
+  '--ds-ease-in-out:cubic-bezier(.3,.85,.25,1);',
+  '}',
 
   /* ── ② 全局铬 ── */
   'html[data-palis-theme][data-palis-square="on"] *,',
@@ -370,6 +414,70 @@ export const PALIS_CSS = [
   'html[data-palis-theme] [data-composer-seat] textarea::placeholder{color:var(--palis-fg-faint);-webkit-text-fill-color:var(--palis-fg-faint)}',
   'html[data-palis-theme] [data-composer-seat] textarea:focus{border-color:var(--palis-accent) !important;box-shadow:none}',
   'html[data-palis-theme] [data-input-mirror],html[data-palis-theme] [data-input-scroll]{background:transparent;color:var(--palis-fg);-webkit-text-fill-color:var(--palis-fg)}',
+  /* 声线波动条画布（client 注入于 [data-composer-card] 顶边；静默时清空，顶蓝边即静止基线。
+     canvas 是替换元素：left+right 拉伸对它无效，必须显式 width 盖过固有尺寸） */
+  '.palis-wave{position:absolute;left:-1px;top:-10px;width:calc(100% + 2px);height:18px;pointer-events:none;z-index:6}',
+  /* 声纳扩散 + 轨道旋转（client 注入 .palis-sonar，对位轨道图中心；与声线波动条共用
+     [data-streaming] 活动门——html[data-palis-activity]）。
+     <i>×3 = ping 扩散环（transform:scale 展开，GPU 友好，--pk 峰值分两态；
+     JS 按 max(760px, 1.1·S) 定径，超宽屏也保证越过最外轨道环）；<b> = 中心蓝点呼吸。
+     <s>×6 = 与各轨道环同径的旋转虚线环：mask 出虚线圆盖在静态环上 = 原环转了起来，
+     厚度/虚线节奏按各环 SVG 参数折算；角度由 JS 逐帧驱动（不规律顺/逆时针交替），CSS 不背 animation。
+     <u>×9 = 行星节点：接替 ART_ORBIT 抠掉的 8 个静态白点沿原半径公转（内快外慢），
+     另加 1 颗 accent 卫星巡蓝环——位置也全由 JS 写。 */
+  '.palis-sonar{position:absolute;width:0;height:0;pointer-events:none;z-index:-1}',
+  '.palis-sonar i{position:absolute;left:0;top:0;width:760px;height:760px;margin:-380px 0 0 -380px;',
+  'border:1px solid rgba(79,128,245,.7);border-radius:50%;transform:scale(.05);opacity:0;',
+  'box-shadow:0 0 30px rgba(43,95,217,.3);',
+  '--pk:.58;animation:palis-sonar-ping 6.4s cubic-bezier(.17,.67,.35,1) infinite}',
+  '.palis-sonar i:nth-child(2){animation-delay:2.13s}',
+  '.palis-sonar i:nth-child(3){animation-delay:4.27s}',
+  'html[data-palis-activity="on"] .palis-sonar i{--pk:.95;border-color:rgba(79,128,245,.95);animation-duration:2.3s}',
+  'html[data-palis-activity="on"] .palis-sonar i:nth-child(2){animation-delay:.77s}',
+  'html[data-palis-activity="on"] .palis-sonar i:nth-child(3){animation-delay:1.53s}',
+  /* 直角模式豁免：声纳环/中心点/行星必须保持圆形（全局 border-radius:0 !important 会切方） */
+  'html[data-palis-theme][data-palis-square="on"] .palis-sonar i,',
+  'html[data-palis-theme][data-palis-square="on"] .palis-sonar b,',
+  'html[data-palis-theme][data-palis-square="on"] .palis-sonar u{border-radius:50% !important}',
+  '.palis-sonar b{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;',
+  'background:var(--palis-accent);opacity:.5;transition:opacity .4s;',
+  'animation:palis-sonar-core 3.4s ease-in-out infinite alternate}',
+  'html[data-palis-activity="on"] .palis-sonar b{opacity:.95;animation-duration:1.1s}',
+  /* 旋转虚线环公共样式：JS 每帧覆写 transform（translate(-50%,-50%) rotate(θ)），这里只给基态 */
+  '.palis-sonar s{position:absolute;left:0;top:0;display:block;transform:translate(-50%,-50%);',
+  'background:var(--palis-accent);opacity:.6;transition:opacity .4s;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.38\' stroke-dasharray=\'1.54 1.54\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.38\' stroke-dasharray=\'1.54 1.54\'/></svg>") center/100% 100% no-repeat}',
+  'html[data-palis-activity="on"] .palis-sonar s{opacity:.95}',
+  /* 灰环：与静态环同径同虚线节奏（g2≈111 段/g3≈273 段），g0/g1 是实线环改的旋转刻度盘 */
+  '.palis-sonar s.g0{background:#ececec;opacity:.5;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'3.13\' stroke-dasharray=\'14.77 14.77\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'3.13\' stroke-dasharray=\'14.77 14.77\'/></svg>") center/100% 100% no-repeat}',
+  '.palis-sonar s.g1{background:#ececec;opacity:.42;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.73\' stroke-dasharray=\'3 3.15\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.73\' stroke-dasharray=\'3 3.15\'/></svg>") center/100% 100% no-repeat}',
+  '.palis-sonar s.g2{background:#ececec;opacity:.4;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.267\' stroke-dasharray=\'.355 2.306\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.267\' stroke-dasharray=\'.355 2.306\'/></svg>") center/100% 100% no-repeat}',
+  '.palis-sonar s.g3{background:#ececec;opacity:.38;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.203\' stroke-dasharray=\'.135 .946\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.203\' stroke-dasharray=\'.135 .946\'/></svg>") center/100% 100% no-repeat}',
+  'html[data-palis-activity="on"] .palis-sonar s.g0{opacity:.78}',
+  'html[data-palis-activity="on"] .palis-sonar s.g1{opacity:.68}',
+  'html[data-palis-activity="on"] .palis-sonar s.g2{opacity:.62}',
+  'html[data-palis-activity="on"] .palis-sonar s.g3{opacity:.58}',
+  '.palis-sonar s.g4{background:#ececec;opacity:.36;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.164\' stroke-dasharray=\'.218 1.201\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.164\' stroke-dasharray=\'.218 1.201\'/></svg>") center/100% 100% no-repeat}',
+  'html[data-palis-activity="on"] .palis-sonar s.g4{opacity:.55}',
+  /* 行星节点：JS 逐帧写 transform 沿轨道公转；.d=对角小点带，.a=蓝环 accent 卫星 */
+  '.palis-sonar u{position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;',
+  'background:rgba(236,236,236,.65);box-shadow:0 0 8px rgba(236,236,236,.42);opacity:.92;transition:opacity .4s}',
+  '.palis-sonar u.d{width:4.5px;height:4.5px;background:rgba(236,236,236,.55)}',
+  '.palis-sonar u.a{background:var(--palis-accent);box-shadow:0 0 10px rgba(43,95,217,.7)}',
+  'html[data-palis-activity="on"] .palis-sonar u{opacity:1}',
+  '@keyframes palis-sonar-ping{0%{transform:scale(.05);opacity:0}9%{opacity:var(--pk)}62%{opacity:calc(var(--pk) * .4)}100%{transform:scale(1);opacity:0}}',
+  '@keyframes palis-sonar-core{from{transform:scale(.8)}to{transform:scale(1.35)}}',
   /* 会话顶部（hero）→ Win95 标题条 */
   'html[data-palis-theme] [data-slot="conversation.hero.agentPreset"] > *{',
   'background:linear-gradient(180deg,#1c1c1c,#101010);border-bottom:1px solid var(--palis-border);',
@@ -379,24 +487,31 @@ export const PALIS_CSS = [
   'html[data-palis-theme][data-palis-glow="on"] h2,',
   'html[data-palis-theme][data-palis-glow="on"] h3{text-shadow:0 0 10px rgba(43,95,217,.5)}',
 
-  /* ── 数据天体（client 注入 DOM 层）：暗球（canvas 正交投影 + 等高线贴图）
-     外包 HUD 几何层（虚线轨道环/刻度环/十字准线/代码读数）+ 表面粒子尘埃 ── */
+  /* ── 数据天体（client 注入 DOM 层）：球 = canvas 正交投影 + 双线性采样，
+     无光照无辉光、固定曝光压暗——质感全部来自构成元素（等高线/经纬网/网点/数据刻度/表面粒子）。
+     外包 HUD 几何层（细实线环/十字准线/live 代码读数）。
+     球体之下另有卫星轨道环（掠过球盘的弧段被遮蔽）── */
   '.palis-globe{position:absolute;right:-560px;top:50%;width:1100px;height:1100px;',
   'transform:translateY(-50%);pointer-events:none;z-index:-1}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
-  'box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 90px rgba(43,95,217,.05)}',
+  'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
+  /* 遮光层只留印刷质感的轻渐变（无光照可算，纯做影调收边） */
   '.palis-globe-shade{position:absolute;inset:0;',
-  'background:linear-gradient(rgba(0,0,0,.24),rgba(0,0,0,.24)),',
-  'radial-gradient(circle at 50% 8%,rgba(255,255,255,.08),transparent 12%),',
-  'radial-gradient(circle at 50% 40%,transparent 18%,rgba(0,0,0,.5) 46%,rgba(0,0,0,.93) 74%),',
-  'linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.15) 34%,rgba(0,0,0,.55) 78%)}',
+  'background:radial-gradient(circle at 50% 6%,rgba(255,255,255,.07),transparent 14%),',
+  'linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.05) 34%,rgba(0,0,0,.2) 78%)}',
   '.palis-globe-dither{position:absolute;inset:0;opacity:.07;',
   'background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'2\'/><feColorMatrix type=\'saturate\' values=\'0\'/></filter><rect width=\'140\' height=\'140\' filter=\'url(%23n)\'/></svg>")}',
-  '.palis-globe-dust{position:absolute;inset:0;opacity:.5;animation:palis-dust-tw 7s ease-in-out infinite}',
-  '@keyframes palis-dust-tw{0%,100%{opacity:.34}50%{opacity:.55}}',
+  '.palis-globe-dust{position:absolute;inset:0;opacity:.6;animation:palis-dust-tw 7s ease-in-out infinite}',
+  '.palis-globe-dust.d2{animation-duration:9.7s;animation-delay:-3.2s}',
+  '.palis-globe-dust.d3{animation-duration:5.3s;animation-delay:-1.6s}',
+  '@keyframes palis-dust-tw{0%,100%{opacity:.4}50%{opacity:.66}}',
   /* HUD 几何层（未裁切；细实线环，无放射刻度） */
+  /* 直角模式豁免：天体与其 HUD 环是具象图形而非 UI 铬件，必须保持圆形（同声纳环先例） */
+  'html[data-palis-theme][data-palis-square="on"] .palis-globe-sphere,',
+  'html[data-palis-theme][data-palis-square="on"] .palis-globe-r1,',
+  'html[data-palis-theme][data-palis-square="on"] .palis-globe-r2{border-radius:50% !important}',
   '.palis-globe-r1{position:absolute;inset:36px;border:1px solid rgba(236,236,236,.10);border-radius:50%}',
   '.palis-globe-r2{position:absolute;inset:10px;border:1px solid rgba(236,236,236,.06);border-radius:50%}',
   '.palis-globe-hline{position:absolute;left:6%;right:26%;top:46%;height:1px;',
@@ -405,13 +520,23 @@ export const PALIS_CSS = [
   'background:linear-gradient(180deg,transparent,rgba(236,236,236,.10) 15% 85%,transparent)}',
   '.palis-globe-cross{position:absolute;left:30%;top:46%;width:5px;height:5px;',
   'border:1px solid rgba(43,95,217,.6);transform:translate(-50%,-50%)}',
-  /* 代码读数 */
-  '.palis-globe::before{content:"LAT 054.23N  LON 061.77E\\ASECTOR 09A-C2  GRID 7X14\\AVER 0.1.1-RC";',
-  'position:absolute;top:7%;left:5%;font-family:var(--palis-font-mono,monospace);font-size:9px;',
+  /* 卫星轨道层（与球呼应）：贴 r1 环半径的倾斜虚线轨道——inset:30 盒 1040px，
+     mask 圆半径 49.42% 使展开半径恰为 514（=SAT_ORBIT_A）；JS 写 rotate(ψ) scaleY(.45)
+     做轨道面进动。卫星点公转/遮挡透明度全由 JS 逐帧覆写（不背 transition） */
+  '.palis-globe-orbit{position:absolute;inset:30px;background:rgba(236,236,236,.34);opacity:.52;',
+  'transition:opacity .4s;',
+  '-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'49.42\' fill=\'none\' stroke=\'black\' stroke-width=\'.125\' stroke-dasharray=\'1.2 3.4\'/></svg>") center/100% 100% no-repeat;',
+  'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'49.42\' fill=\'none\' stroke=\'black\' stroke-width=\'.125\' stroke-dasharray=\'1.2 3.4\'/></svg>") center/100% 100% no-repeat}',
+  'html[data-palis-activity="on"] .palis-globe-orbit{opacity:.78}',
+  '.palis-globe-sat{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;',
+  'border-radius:50%;background:var(--palis-accent);opacity:0;',
+  'box-shadow:0 0 10px rgba(43,95,217,.75),0 0 3px rgba(127,168,255,.9)}',
+  'html[data-palis-theme][data-palis-square="on"] .palis-globe-sat{border-radius:50% !important}',
+  /* 代码读数（live，由 globe 引擎 500ms 节流覆写；外观沿用原 ::before/::after 的样式） */
+  '.palis-globe-ro{position:absolute;margin:0;font-family:var(--palis-font-mono,monospace);font-size:9px;',
   'line-height:2;letter-spacing:.22em;color:rgba(168,168,168,.5);white-space:pre;pointer-events:none}',
-  '.palis-globe::after{content:"TRACK 3 OBJECTS  SIGNAL 21ms\\AINDEX 0x8C41 0x77E2 0x00A9";',
-  'position:absolute;bottom:9%;left:4%;font-family:var(--palis-font-mono,monospace);font-size:9px;',
-  'line-height:2;letter-spacing:.2em;color:rgba(96,96,96,.55);white-space:pre;pointer-events:none}',
+  '.palis-globe-ro1{top:7%;left:5%}',
+  '.palis-globe-ro2{bottom:9%;left:4%;letter-spacing:.2em;color:rgba(96,96,96,.55)}',
   'html[data-palis-artwork="off"] .palis-globe{display:none!important}',
   'html:not([data-palis-theme]) .palis-globe{display:none!important}',
   /* 欢迎屏（hero 态）：天体右移更多，只露左弧 */

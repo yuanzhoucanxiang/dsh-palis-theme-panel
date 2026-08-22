@@ -96,7 +96,13 @@ function logLine(text: string, cls: 'ok' | 'err' | 'accent' | '' = ''): void {
 }
 
 function ensurePanelCss(): void {
-  if (panelTag !== null) return
+  // 按 DOM 实况对齐，不信模块变量：cordis effect 重跑时新回调可能先于旧清理
+  // 执行，旧的非 null 守卫会让 tag 永远丢失（实测：floatBtn 在而 panelTag 不在）。
+  const existing = document.getElementById('palis-theme-panel-css') as HTMLStyleElement | null
+  if (existing !== null) {
+    panelTag = existing
+    return
+  }
   panelTag = document.createElement('style')
   panelTag.id = 'palis-theme-panel-css'
   panelTag.textContent = PANEL_CSS
@@ -841,7 +847,10 @@ const STYLE: Array<{ key: keyof PalisSettings; label: string }> = [
 
 function Panel(): unknown {
   const [, force] = useState(0)
-  useEffect(() => subscribe(() => force((n) => n + 1)), [])
+  useEffect(() => {
+    ensurePanelCss() // 面板出现时样式必在（重跑抖动后的自愈点）
+    return subscribe(() => force((n) => n + 1))
+  }, [])
 
   const on = current.enabled
   const toggle = (key: keyof PalisSettings, value: boolean | 'low' | 'mid' | 'high') => () => void setField(key, value)
@@ -928,7 +937,7 @@ function Panel(): unknown {
           ),
           h(
             'div',
-            { className: 'ptp-cell' },
+            { className: 'ptp-cell ptp-cell-wide' },
             h('div', { className: 'ptp-cap' }, '风格 / STYLE'),
             togglesOf(STYLE),
           ),
@@ -1010,8 +1019,8 @@ export function apply(ctx: ClientContext): void {
       dropWave()
       removeSonar()
       dropThemeCss()
-      panelTag?.remove()
-      panelTag = null
+      // panelTag 有意不清理：PANEL_CSS 与主题开关无关、页面生命周期内常驻；
+      // effect 重跑的删建抖动曾导致设置面板样式丢失（见 ensurePanelCss 注释）。
     }
   }, 'palis-theme-panel: runtime')
 

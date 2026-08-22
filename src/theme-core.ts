@@ -581,6 +581,8 @@ export const PANEL_CSS = [
   '.ptp-power.on .ptp-val{color:#2b5fd9}',
   '.ptp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
   '.ptp-cell{border:1px solid #242424;background:#0d0d0d;padding:10px 12px}',
+  /* 三个 cell 两列会留右下空洞：STYLE 通栏，其 toggles 也得以三列排开 */
+  '.ptp-cell-wide{grid-column:1/-1}',
   '.ptp-cell .ptp-cap{font-size:10px;letter-spacing:.22em;color:#5c5c5c;margin-bottom:8px}',
   '.ptp-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
   '.ptp-seg{display:flex;border:1px solid #2c2c2c}',
@@ -588,13 +590,17 @@ export const PANEL_CSS = [
   '.ptp-seg button:last-child{border-right:none}',
   '.ptp-seg button.sel{background:#2b5fd9;color:#0a0a0a}',
   '.ptp-seg button:hover:not(.sel){background:#161616}',
-  '.ptp-toggles{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}',
-  '.ptp-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;user-select:none;font-size:11px;letter-spacing:.08em;color:#b8b8b8}',
+  /* 设置页 main 列可能很窄（实测 564px）：minmax 自适应减列，nowrap 防断字折行 */
+  '.ptp-toggles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 14px}',
+  '.ptp-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;user-select:none;font-size:11px;letter-spacing:.08em;color:#b8b8b8;white-space:nowrap}',
   '.ptp-toggle:hover{color:#ececec}',
   '.ptp-toggle input{appearance:none;-webkit-appearance:none;width:26px;height:13px;border:1px solid #3a3a3a;background:#111;position:relative;cursor:pointer;flex:none;margin:0}',
   '.ptp-toggle input::after{content:"";position:absolute;top:1px;left:1px;width:9px;height:9px;background:#5c5c5c;transition:left .12s steps(2)}',
   '.ptp-toggle input:checked{background:#122a5c;border-color:#2b5fd9}',
   '.ptp-toggle input:checked::after{left:14px;background:#6f9cff}',
+  /* 聚焦框收入主题语言：鼠标点击不留白框，键盘聚焦给主题蓝框 */
+  '.ptp-power:focus:not(:focus-visible),.ptp-seg button:focus:not(:focus-visible),.ptp-float:focus:not(:focus-visible){outline:none}',
+  '.ptp-power:focus-visible,.ptp-seg button:focus-visible,.ptp-float:focus-visible{outline:1px solid #2b5fd9;outline-offset:2px}',
   '.ptp-log{margin-top:12px;border:1px dashed #242424;padding:8px 10px;font-size:10px;line-height:1.9;letter-spacing:.12em;color:#5c5c5c;min-height:64px;white-space:pre-wrap}',
   '.ptp-log .ok{color:#9fb4c9}',
   '.ptp-log .err{color:#e05548}',

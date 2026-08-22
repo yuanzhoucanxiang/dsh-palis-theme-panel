@@ -455,3 +455,39 @@ data-open、面板 0.24s、交叉淡化延迟 84ms、收起中段 matrix(363px �
 opacity 0.003 真实中间帧；flicker 逐帧复测错位 ≤7px、波动条 backing 零重置。
 better-sidebar 仍 0.12.2、palis 仍 0.1.1（改动均 client 侧，内核按页加载直发
 磁盘 client.js，预览内核无需重启）。
+
+## 11. v0.1.1 设置面板三伤修复（2026-08-22，用户截图反馈）
+
+用户截图问「主题设置界面是不是有些问题」。截图 + headless 探针（verify-panel.mjs）
+逐项定位：
+
+**伤 1（最重）：PANEL_CSS 整体丢失——面板无标题栏/边框/网格，退化为裸 inline 排布**
+取证链：floatBtn 在 + panelTag 不在 + 零 console 报错 + 手动重放的 style tag 存活
+→ 排除「创建后被删」，锁定「创建路径被跳过」。根因：cordis effect 重跑时新回调
+可能先于旧清理执行——旧 `if (panelTag !== null) return` 守卫让新回调跳过创建，
+旧清理随后把唯一 tag 移除。floatBtn 因「无条件重建 + 双实例残留」反而在。
+正确逻辑覆盖（不打补丁）：
+- `ensurePanelCss` 按 DOM 实况自愈（getElementById 为准，不认模块变量）；
+- effect 清理函数删除 `panelTag?.remove(); panelTag = null`——PANEL_CSS 的设计
+  语义本就是「与主题开关无关、始终注入」，原实现的删除行为与自身注释矛盾；
+- Panel 组件挂载 effect 里补一次 ensurePanelCss 自愈。
+顺带说明：PALIS_CSS 与主题开关联动（关时必须删），维持原语义不动。
+
+**伤 2：开关折行断字**（「开机自检 BOOT SEQ」断成「开机自/检」）
+实测：设置页 main 列仅 564px → cell 263px → toggles 两列各 110px < 标签所需
+~134px。修：`.ptp-toggles` 改 `repeat(auto-fill,minmax(150px,1fr))`（窄了自动
+减列）+ 标签 nowrap；STYLE cell 加 `.ptp-cell-wide` 通栏——顺手消灭三 cell 进
+两列网格的右下空洞。复测：FX 单列竖排、STYLE 通栏三列、boot 标签单行（h 26→13）。
+
+**伤 3：POWER 行残留白色聚焦框**
+`:focus:not(:focus-visible)` 去框 + `:focus-visible` 主题蓝框（power/seg/float
+三处），键盘可达性保留。
+
+**联动修复（非本仓库）**：设置左导航出现两个「插件」——内核自带插件管理页与
+dsh-super-injector 的 settings.section（`label: () => '插件'`）撞名。改 super-
+injector label 为「模组注入」（运行时 `~/.dsh/plugins/dsh-super-injector` 的
+src + lib 重建，工作区 `dsh-super-injector-main` 源码副本同步一行）。
+
+**验证**：预览实例 v25（kernel 5736）verify-panel.mjs 复测——gridCols 恢复、
+bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-out/panel-audit.png
+目视：标题栏/卡片边框/通栏 STYLE/无白框，面板回归 PALIS 审美。

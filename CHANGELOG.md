@@ -93,6 +93,17 @@
   正确边长 = S·r/470，本轮起全部按此精解（旋转环与静态环严格同径）
 - 数据天体被直角模式切方：全局 `border-radius:0 !important` 同样波及 `.palis-globe-sphere`
   与 HUD 环 r1/r2（球形容器变方盒）——具象图形非 UI 铬件，按声纳环同例豁免复圆
+- 设置面板样式整体丢失（实机反馈，根因确凿）：cordis effect 重跑时新回调可能先于
+  旧清理执行——旧实现 `if (panelTag !== null) return` 守卫让回调跳过创建，随后
+  旧清理把唯一 tag 移除 = 面板永久无样式（实测 floatBtn 在而 panelTag 不在）。
+  正确逻辑覆盖：`ensurePanelCss` 改按 DOM 实况自愈对齐（getElementById 为准，
+  不信模块变量）；effect 清理函数不再删除 panelTag——PANEL_CSS 与主题开关无关、
+  页面生命周期内常驻；Panel 组件挂载时自愈调用兜底
+- 设置页窄列下开关折行断字：设置页 main 列实测仅 564px，`.ptp-toggles` 两列
+  各 110px < 标签所需 ~134px——改 `repeat(auto-fill,minmax(150px,1fr))` 自适应减列
+  + 标签 nowrap；STYLE 区通栏（`.ptp-cell-wide`，顺手消灭三 cell 两列的右下空洞）
+- POWER/分段/浮动按钮点击后残留白色聚焦框：`:focus:not(:focus-visible)` 去框，
+  `:focus-visible` 统一主题蓝框（键盘可达性保留）
 
 ## 0.1.0 — 2026-08-21
 

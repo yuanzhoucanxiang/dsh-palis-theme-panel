@@ -164,6 +164,51 @@ export function apply(ctx: Context): void {
     'palis-theme-panel: /palis-theme/api route',
   )
 
+  // ── 外壳皮肤联动：桌面外壳在「皮肤切入/切出 palis」及内核 ready 时 POST
+  //    /api/palis-theme {theme:'palis'|''}（契约见 dsh-desktop/main.js pushThemeToKernel，
+  //    原为内置扁平插件 palis-theme 预留——本插件直接实现同一契约：开 = 写入
+  //    enabled:true，关 = enabled:false；GET 返回当前主题态，兼容轮询语义）──
+  ctx.effect(
+    () =>
+      c.webServer.register({
+        kind: 'exact',
+        path: '/api/palis-theme',
+        handler: async (req: any, res: any) => {
+          if (!isLoopbackRequest(req)) {
+            writeJson(res, 403, { ok: false, error: 'forbidden' })
+            return
+          }
+          if (req.method === 'GET') {
+            writeJson(res, 200, { ok: true, theme: settingsOf().enabled ? 'palis' : '' })
+            return
+          }
+          if (req.method === 'POST') {
+            if (face === undefined) {
+              writeJson(res, 503, { ok: false, error: 'settings service unavailable' })
+              return
+            }
+            let parsed: any
+            try {
+              parsed = JSON.parse((await readBody(req)) || '{}')
+            } catch {
+              writeJson(res, 400, { ok: false, error: 'invalid json' })
+              return
+            }
+            const on = parsed?.theme === 'palis'
+            try {
+              await face.update({ enabled: on })
+              writeJson(res, 200, { ok: true, enabled: on })
+            } catch (error) {
+              writeJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) })
+            }
+            return
+          }
+          writeJson(res, 405, { ok: false, error: 'method not allowed' })
+        },
+      }),
+    'palis-theme-panel: /api/palis-theme shell-theme link route',
+  )
+
   // ── index-inject：主题开启时首帧注入（零闪烁）──────────────────────────
   ;(c as any).on('webserver/index-inject', (table: any[]) => {
     const settings = settingsOf()

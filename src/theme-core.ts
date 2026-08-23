@@ -105,8 +105,8 @@ export function bootScriptOf(s: PalisSettings): string {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 背景图形（参考 PALIS 09A 总目录屏）：3D 地球（右侧，大陆纹理 + 云层 + 自转）
- * + 环形轨道图（居中）。地球为 DOM 层（client 注入），贴图为内联 SVG data-URI。
+ * 背景图形（参考 PALIS 09A 总目录屏）：3D 月球（右侧，月海/环形山点云 + 自转）
+ * + 环形轨道图（居中）。月球为 DOM 层（client 注入），贴图为内联 SVG data-URI。
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /** 星尘背景（600x600 平铺）：低透明度散点，做暗面配角。 */
@@ -129,90 +129,378 @@ const ART_STARS = [
   '</svg>',
 ].join('')
 
-/** 等距投影地球贴图（2048x1024，横向无缝平铺）：湍流生成的有机陆块（梯田化多层）
- *  + 云层 + 多尺度半调网点（细/中/粗三层 + 陆块密度调制层）+ 经纬网 + 13 条加密等高线
- *  + 纵向波纹线（编织感）+ 数据刻度标记。client 的球面引擎按正交投影逐像素采样。 */
-export const ART_EARTH_MAP = [
-  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2048 1024'>",
-  '<defs>',
-  "<filter id='land' x='-15%' y='-15%' width='130%' height='130%'>",
-  "<feTurbulence type='fractalNoise' baseFrequency='0.0035 0.005' numOctaves='5' seed='3'/>",
-  "<feColorMatrix type='saturate' values='0'/>",
-  /* 梯田化 7 档阶梯（原 6 档）：更多地形台阶，海岸线层次更碎 */
-  "<feComponentTransfer><feFuncA type='table' tableValues='0 0 0 1 .8 .55 .32'/></feComponentTransfer>",
-  '</filter>',
-  "<filter id='soft'><feGaussianBlur stdDeviation='2.5'/></filter>",
-  "<filter id='cloud'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.009' numOctaves='6' seed='7'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 .5 .22'/></feComponentTransfer></filter>",
-  "<filter id='wisp'><feTurbulence type='fractalNoise' baseFrequency='0.025 0.035' numOctaves='4' seed='11'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 .28 .12'/></feComponentTransfer></filter>",
-  "<filter id='d'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter>",
-  /* 位移加强 60→85：等高线/波纹线更锯齿，地形感更野 */
-  "<filter id='disloc'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.02' numOctaves='2' seed='17' result='t'/><feDisplacementMap in='SourceGraphic' in2='t' scale='85' xChannelSelector='R' yChannelSelector='G'/></filter>",
-  "<pattern id='h' width='4' height='4' patternUnits='userSpaceOnUse'><circle cx='1.2' cy='1.2' r='0.7' fill='rgba(236,236,236,.18)'/></pattern>",
-  /* 多尺度网点（参考 PALIS 总目录屏：密度随明度走）——细粒底噪/粗疏暗区粒/陆块调制加密粒 */
-  "<pattern id='h2' width='9' height='9' patternUnits='userSpaceOnUse'><circle cx='2' cy='2' r='1.1' fill='rgba(236,236,236,.1)'/></pattern>",
-  "<pattern id='h3' width='3' height='3' patternUnits='userSpaceOnUse'><circle cx='.8' cy='.8' r='.45' fill='rgba(236,236,236,.07)'/></pattern>",
-  "<pattern id='hm' width='5' height='5' patternUnits='userSpaceOnUse'><circle cx='1.4' cy='1.4' r='1' fill='rgba(236,236,236,.3)'/></pattern>",
-  /* 陆块蒙版：陆块湍流的明度×阶梯 alpha 作 mask → 网点在陆地密、海洋疏 */
-  "<mask id='ml' maskUnits='userSpaceOnUse' x='0' y='0' width='2048' height='1024'><rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' fill='white'/></mask>",
-  '</defs>',
-  /* 有机陆块：阈值化湍流 → 碎片化"海岸线"，两层叠加 + 模糊软边，低对比 */
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.55'/>",
-  "<g filter='url(%23soft)'><rect x='0' y='0' width='2048' height='1024' filter='url(%23land)' opacity='.26'/></g>",
-  /* 等高线：位移后的水平波纹线（起止同 y，横向无缝）→ 地形等高感（加密为 13 条） */
-  "<g stroke='rgba(226,236,246,.3)' stroke-width='1.2' fill='none' filter='url(%23disloc)'>",
-  "<path d='M0,40 C256,18 512,62 768,40 S1280,18 1536,44 S1792,24 2048,40'/>",
-  "<path d='M0,116 C256,94 512,138 768,116 S1280,94 1536,120 S1792,100 2048,116'/>",
-  "<path d='M0,192 C256,170 512,214 768,192 S1280,170 1536,196 S1792,176 2048,192'/>",
-  "<path d='M0,268 C256,246 512,290 768,268 S1280,246 1536,272 S1792,252 2048,268'/>",
-  "<path d='M0,344 C256,322 512,366 768,344 S1280,322 1536,348 S1792,328 2048,344'/>",
-  "<path d='M0,420 C256,398 512,442 768,420 S1280,398 1536,424 S1792,404 2048,420'/>",
-  "<path d='M0,496 C256,474 512,518 768,496 S1280,474 1536,500 S1792,480 2048,496'/>",
-  "<path d='M0,572 C256,550 512,594 768,572 S1280,550 1536,576 S1792,556 2048,572'/>",
-  "<path d='M0,648 C256,626 512,670 768,648 S1280,626 1536,652 S1792,632 2048,648'/>",
-  "<path d='M0,724 C256,702 512,746 768,724 S1280,702 1536,728 S1792,708 2048,724'/>",
-  "<path d='M0,800 C256,778 512,822 768,800 S1280,778 1536,804 S1792,784 2048,800'/>",
-  "<path d='M0,876 C256,854 512,898 768,876 S1280,854 1536,880 S1792,860 2048,876'/>",
-  "<path d='M0,952 C256,930 512,974 768,952 S1280,930 1536,956 S1792,936 2048,952'/>",
-  '</g>',
-  /* 纵向波纹线：与等高线正交的"编织"第二方向（纵向线不跨横向接缝，天然无缝） */
-  "<g stroke='rgba(226,236,246,.2)' stroke-width='1' fill='none' filter='url(%23disloc)'>",
-  "<path d='M128,0 C112,128 144,256 128,384 S112,640 128,768 S144,896 128,1024'/>",
-  "<path d='M384,0 C368,128 400,256 384,384 S368,640 384,768 S400,896 384,1024'/>",
-  "<path d='M640,0 C624,128 656,256 640,384 S624,640 640,768 S656,896 640,1024'/>",
-  "<path d='M896,0 C880,128 912,256 896,384 S880,640 896,768 S912,896 896,1024'/>",
-  "<path d='M1152,0 C1136,128 1168,256 1152,384 S1136,640 1152,768 S1168,896 1152,1024'/>",
-  "<path d='M1408,0 C1392,128 1424,256 1408,384 S1392,640 1408,768 S1424,896 1408,1024'/>",
-  "<path d='M1664,0 C1648,128 1680,256 1664,384 S1648,640 1664,768 S1680,896 1664,1024'/>",
-  "<path d='M1920,0 C1904,128 1936,256 1920,384 S1904,640 1920,768 S1936,896 1920,1024'/>",
-  '</g>',
-  /* 经纬网（几何基准） */
-  "<g stroke='rgba(236,236,236,.12)' stroke-width='1'>",
-  "<line x1='256' y1='0' x2='256' y2='1024'/><line x1='512' y1='0' x2='512' y2='1024'/>",
-  "<line x1='768' y1='0' x2='768' y2='1024'/><line x1='1024' y1='0' x2='1024' y2='1024'/>",
-  "<line x1='1280' y1='0' x2='1280' y2='1024'/><line x1='1536' y1='0' x2='1536' y2='1024'/>",
-  "<line x1='1792' y1='0' x2='1792' y2='1024'/>",
-  "<line x1='0' y1='256' x2='2048' y2='256'/><line x1='0' y1='512' x2='2048' y2='512'/>",
-  "<line x1='0' y1='768' x2='2048' y2='768'/>",
-  '</g>',
-  /* 数据刻度：散布表面的测量十字 + 标记环（随球面卷曲旋转） */
-  "<g stroke='rgba(226,236,246,.36)' stroke-width='1.2' fill='none'>",
-  "<path d='M388,169 h14 M395,162 v14'/><path d='M753,293 h14 M760,286 v14'/>",
-  "<path d='M1223,203 h14 M1230,196 v14'/><path d='M1533,463 h14 M1540,456 v14'/>",
-  "<path d='M893,593 h14 M900,586 v14'/><path d='M293,693 h14 M300,686 v14'/>",
-  "<path d='M1323,773 h14 M1330,766 v14'/><path d='M1803,613 h14 M1810,606 v14'/>",
-  "<path d='M548,369 h14 M555,362 v14'/><path d='M1073,93 h14 M1080,86 v14'/>",
-  "<path d='M1443,843 h14 M1450,836 v14'/><path d='M683,903 h14 M690,896 v14'/>",
-  "<circle cx='1660' cy='400' r='5'/><circle cx='610' cy='470' r='4'/><circle cx='1080' cy='640' r='4'/>",
-  '</g>',
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23cloud)' opacity='.3'/>",
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23wisp)' opacity='.16'/>",
-  "<rect x='0' y='0' width='2048' height='1024' filter='url(%23d)' opacity='.15'/>",
-  '<rect x=\'0\' y=\'0\' width=\'2048\' height=\'1024\' fill=\'url(%23h)\'/>',
-  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23h3)'/>",
-  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23h2)'/>",
-  "<rect x='0' y='0' width='2048' height='1024' fill='url(%23hm)' mask='url(%23ml)'/>",
-  '</svg>',
-].join('')
+/* 月面贴图（等距圆柱 2048×1024，横向无缝）：引擎按贴图 R 通道亮度撒点云——亮（≥96）
+ * 密点、暗（34–95）疏点、<34 镂空。设计参照矿质月面摄影 + 月相网格地理 + 半调网点
+ * 海报语言：中灰高地基底 → 6 倍频反照率湍流（兼作中粒网点明度蒙版 = 真半调）→
+ * 远古盆地/坑群/链坑/南半球饱和坑群/微坑颗粒 → 月海十二片按 selenographic 坐标
+ * 排布（冷海带/雨海/澄海/静海/危海/丰富海/酒海/云海/湿海/风暴洋/格里马尔迪/
+ * 柏拉图，背面纯高地）+ 同位移场亮岸线/皱脊/月溪/海缘幽灵坑 → 年轻亮坑 + 喷发毯 +
+ * 第谷/哥白尼/开普勒楔形射纹 + Aristarchus 蓝白闪点 → 矿质双色调罩层（高地暖铜/
+ * 月海钛蓝，舷窗直视可读）→ 三档网点 → 极区微亮 → 高频颗粒。离散元素 PRNG 确定性
+ * 生成，近缝元素 ±2048 复制保横向无缝。 */
+
+/** mulberry32：确定性 PRNG（月貌稳定，构建/探针截图可复现）。 */
+function moonPrng(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function buildMoonMap(): string {
+  const rnd = moonPrng(20260823)
+  const W = 2048
+  const H = 1024
+  const f1 = (n: number): string => n.toFixed(1)
+  /** 圆心角 a0→a1（度，0=东向逆时针）的圆弧 path（环形山明暗弧用） */
+  const arc = (cx: number, cy: number, r: number, a0: number, a1: number): string => {
+    const p = (a: number): string => f1(cx + r * Math.cos((a * Math.PI) / 180)) + ',' + f1(cy - r * Math.sin((a * Math.PI) / 180))
+    const large = Math.abs(a1 - a0) > 180 ? 1 : 0
+    return 'M' + p(a0) + ' A' + f1(r) + ',' + f1(r) + ' 0 ' + large + ' 0 ' + p(a1)
+  }
+  /** 横向接缝 wrap：x 距缝 margin 内时在 x±W 各复制一份（回调产出元素字符串） */
+  const wrap = (x: number, margin: number, draw: (x: number) => string): string => {
+    let s = draw(x)
+    if (x < margin) s += draw(x + W)
+    if (x > W - margin) s += draw(x - W)
+    return s
+  }
+
+  /* ── 月海地理：按真月正面 selenographic 坐标排布（参考月相网格照片）──
+   * 映射：x = 990 + 5.5·东经，y = 512 − 5.7·北纬（近地面带宽 ≈ ±90°）；
+   * x<350 / x>1600 留纯高地=月球背面（自转一周讲完两面）。每片 1-3 个交叠椭圆
+   * + disloc 位移破边；tone 索引两层覆盖的色板（0-3 常规微差，4 = 危海/格里
+   * 马尔迪/柏拉图式深黑）。色值标定：基底 150 之上压到海面 s≈76-84 → 引擎暗部
+   * 稀疏层（1/7 撒点），与高地（s≈110-190 密点阵）形成宏结构对比。 ── */
+  interface Maria { x: number; y: number; tone: number; blobs: Array<{ dx: number; dy: number; rx: number; ry: number; rot: number }> }
+  const marias: Maria[] = [
+    { x: 950, y: 195, tone: 1, blobs: [ // 冷海 Frigoris：北极长带
+      { dx: 0, dy: 0, rx: 300, ry: 48, rot: -4 },
+      { dx: -260, dy: 18, rx: 130, ry: 34, rot: 8 },
+      { dx: 250, dy: 14, rx: 140, ry: 36, rot: -10 },
+    ] },
+    { x: 904, y: 325, tone: 0, blobs: [ // 雨海 Imbrium
+      { dx: 0, dy: 0, rx: 108, ry: 84, rot: -10 },
+      { dx: -70, dy: 40, rx: 60, ry: 44, rot: 15 },
+      { dx: 70, dy: 36, rx: 56, ry: 40, rot: -18 },
+    ] },
+    { x: 1086, y: 352, tone: 2, blobs: [ // 澄海 Serenitatis
+      { dx: 0, dy: 0, rx: 64, ry: 56, rot: 8 },
+    ] },
+    { x: 1163, y: 464, tone: 1, blobs: [ // 静海 Tranquillitatis
+      { dx: 0, dy: 0, rx: 82, ry: 62, rot: -6 },
+      { dx: 60, dy: 36, rx: 48, ry: 34, rot: 14 },
+    ] },
+    { x: 1315, y: 415, tone: 4, blobs: [ // 危海 Crisium：孤立深黑圆海
+      { dx: 0, dy: 0, rx: 42, ry: 34, rot: 10 },
+    ] },
+    { x: 1272, y: 556, tone: 1, blobs: [ // 丰富海 Fecunditatis
+      { dx: 0, dy: 0, rx: 56, ry: 74, rot: 8 },
+      { dx: -20, dy: 60, rx: 36, ry: 30, rot: -12 },
+    ] },
+    { x: 1185, y: 599, tone: 2, blobs: [ // 酒海 Nectaris
+      { dx: 0, dy: 0, rx: 34, ry: 28, rot: 0 },
+    ] },
+    { x: 899, y: 633, tone: 1, blobs: [ // 云海 Nubium
+      { dx: 0, dy: 0, rx: 64, ry: 44, rot: 16 },
+      { dx: -50, dy: 20, rx: 38, ry: 26, rot: -8 },
+    ] },
+    { x: 776, y: 653, tone: 2, blobs: [ // 湿海 Humorum
+      { dx: 0, dy: 0, rx: 40, ry: 34, rot: -14 },
+    ] },
+    { x: 704, y: 542, tone: 0, blobs: [ // 风暴洋 Oceanus Procellarum：最大海系
+      { dx: 0, dy: -40, rx: 120, ry: 140, rot: 6 },
+      { dx: 60, dy: 90, rx: 110, ry: 80, rot: -10 },
+      { dx: -90, dy: 60, rx: 90, ry: 110, rot: 18 },
+    ] },
+    { x: 613, y: 542, tone: 4, blobs: [ // 格里马尔迪 Grimaldi：深黑小海
+      { dx: 0, dy: 0, rx: 24, ry: 18, rot: -8 },
+    ] },
+    { x: 939, y: 218, tone: 4, blobs: [ // 柏拉图 Plato：雨海北缘暗斑
+      { dx: 0, dy: 0, rx: 12, ry: 10, rot: 0 },
+    ] },
+  ]
+  const mariaShapes = (fill: string | ((i: number) => string)): string =>
+    marias
+      .map((m, i) =>
+        m.blobs
+          .map(
+            (b) =>
+              "<ellipse cx='" + f1(m.x + b.dx) + "' cy='" + f1(m.y + b.dy) + "' rx='" + f1(b.rx) + "' ry='" + f1(b.ry) +
+              "' transform='rotate(" + f1(b.rot) + ' ' + f1(m.x + b.dx) + ' ' + f1(m.y + b.dy) + ")' fill='" +
+              (typeof fill === 'function' ? fill(i) : fill) + "'/>",
+          )
+          .join(''),
+      )
+      .join('')
+  /** 月海岸线描边：与填充共用同一 disloc filter = 同一位移场，亮岸线贴着破边走；
+   * rx<28 的微型海（柏拉图/格里马尔迪）跳过——描边宽度会淹没本体 */
+  const mariaStrokes = (stroke: string, w: number): string =>
+    marias
+      .map((m) =>
+        m.blobs
+          .filter((b) => b.rx >= 28)
+          .map(
+            (b) =>
+              "<ellipse cx='" + f1(m.x + b.dx) + "' cy='" + f1(m.y + b.dy) + "' rx='" + f1(b.rx) + "' ry='" + f1(b.ry) +
+              "' transform='rotate(" + f1(b.rot) + ' ' + f1(m.x + b.dx) + ' ' + f1(m.y + b.dy) + ")' fill='none' stroke='" +
+              stroke + "' stroke-width='" + f1(w) + "'/>",
+          )
+          .join(''),
+      )
+      .join('')
+  /** 海内皱脊/月溪：沿椭圆弧行进 + 正弦抖动的折线（亮脊/暗溪，月面地质语言）；
+   * aspect 随行——长带形海（冷海）画出顺带的脊线 */
+  const mareWinding = (m: Maria, a0: number, a1: number, rad: number, amp: number, phase: number): string => {
+    const aspect = m.blobs[0].ry / m.blobs[0].rx
+    const pts: string[] = []
+    for (let k = 0; k <= 9; k++) {
+      const a = a0 + ((a1 - a0) * k) / 9
+      const rr = rad * (1 + amp * Math.sin(phase + k * 1.7))
+      pts.push(f1(m.x + Math.cos(a) * rr * 1.05) + ',' + f1(m.y + Math.sin(a) * rr * aspect * 0.9))
+    }
+    return 'M' + pts.join(' L')
+  }
+  /* 海内细节：大块圆海给皱脊×2（亮）+ 月溪×1（暗）；R≥45 给海缘幽灵坑
+   * （低 alpha 细环 = 浅海下透出）；微型海保持干净 */
+  const mareDetails: string[] = []
+  marias.forEach((m, i) => {
+    const R = m.blobs[0].rx
+    if (R >= 50 && m.blobs[0].ry / R > 0.5) {
+      mareDetails.push(
+        "<path d='" + mareWinding(m, 0.4 + i, 2.6 + i, R * 0.52, 0.16, i * 2.1) + "' fill='none' stroke='rgba(226,236,246,.13)' stroke-width='3' stroke-linejoin='round'/>",
+        "<path d='" + mareWinding(m, 3.4 + i * 0.7, 5.4 + i * 0.7, R * 0.68, 0.13, i * 1.3) + "' fill='none' stroke='rgba(226,236,246,.1)' stroke-width='2.4' stroke-linejoin='round'/>",
+        "<path d='" + mareWinding(m, 1.8 + i * 0.9, 3.9 + i * 0.9, R * 0.4, 0.2, i * 3.7) + "' fill='none' stroke='rgba(8,10,14,.4)' stroke-width='2.2' stroke-linejoin='round'/>",
+      )
+    }
+    if (R >= 45) {
+      mareDetails.push(
+        "<circle cx='" + f1(m.x + Math.cos(0.9 + i * 1.1) * R * 0.92) + "' cy='" + f1(m.y + Math.sin(0.9 + i * 1.1) * R * 0.6) + "' r='" + f1(16 + i * 4) + "' fill='rgba(28,32,38,.22)' stroke='rgba(232,238,245,.2)' stroke-width='2'/>",
+      )
+    }
+  })
+
+  /* ── 环形山（细环淡底，反照率特征而非光照；海报式细白描边）──
+   * 层序考古学：古老盆地/中坑画在月海之下→被海面半掩成幽灵坑；年轻亮坑、射纹
+   * 大坑与喷发毯画在月海之上（第谷/开普勒式暗面亮点）。坑最小 r=12（2048 尺度）
+   * =降采样后 6px，再小只会混成盐噪；链坑 r 7-10 服务原图直视，点云里化作点状
+   * 虚线纹理。 */
+  const oldCraters: string[] = [] // 月海之下（远古盆地 + 高地坑群 + 链坑）
+  const newCraters: string[] = [] // 月海之上（喷发毯/年轻坑/射纹大坑）
+  const bellY = (): number => 512 + ((rnd() + rnd() + rnd()) / 3 - 0.5) * 2 * 400
+  const craterArcs = (cx: number, y: number, r: number, hiA: string): string =>
+    "<path d='" + arc(cx, y, r * 0.82, -25, 115) + "' fill='none' stroke='rgba(16,20,26,.42)' stroke-width='" + f1(r * 0.16) + "'/>" +
+    "<path d='" + arc(cx, y, r * 0.88, 140, 295) + "' fill='none' stroke='rgba(240,244,250," + hiA + ")' stroke-width='" + f1(r * 0.09) + "'/>"
+  /** 坑体公共配方：暗底 + 细亮环 + 明暗弧 + （可选）中央峰 */
+  const craterBody = (cx: number, y: number, r: number, rimA: string, hiA: string, peakA: string): string =>
+    "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r * 0.78) + "' fill='rgba(45,50,57,.42)'/>" +
+    "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r) + "' fill='none' stroke='rgba(232,238,245," + rimA + ")' stroke-width='" + f1(r * 0.11) + "'/>" +
+    craterArcs(cx, y, r, hiA) +
+    (peakA === '0' ? '' : "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r * 0.11) + "' fill='rgba(232,238,245," + peakA + ")'/>")
+  // 古老大盆地 ×2（背面高地：退化双环 + 缘上叠加中坑 = 地层叠压感）
+  const basins: Array<{ x: number; y: number; r: number }> = [
+    { x: 180, y: 300, r: 120 }, { x: 1850, y: 700, r: 145 },
+  ]
+  for (const b of basins) {
+    oldCraters.push(wrap(b.x, b.r + 60, (cx) =>
+      "<circle cx='" + f1(cx) + "' cy='" + f1(b.y) + "' r='" + f1(b.r) + "' fill='rgba(42,47,54,.16)'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(b.y) + "' r='" + f1(b.r) + "' fill='none' stroke='rgba(232,238,245,.18)' stroke-width='" + f1(b.r * 0.05) + "'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(b.y) + "' r='" + f1(b.r * 0.68) + "' fill='none' stroke='rgba(232,238,245,.12)' stroke-width='" + f1(b.r * 0.035) + "'/>" +
+      craterBody(cx + b.r * 0.7, b.y - b.r * 0.45, b.r * 0.24, '.4', '.34', '.36'),
+    ))
+  }
+  // 古老中坑 ×16（月海之下，部分将被海面淹没成幽灵坑）
+  for (let i = 0; i < 16; i++) {
+    const x = rnd() * W
+    const y = bellY()
+    const r = 18 + rnd() * 16
+    oldCraters.push(wrap(x, 60, (cx) => craterBody(cx, y, r, '.5', '.42', rnd() < 0.4 ? '.45' : '0')))
+  }
+  // 小坑 ×64（全幅：一半钟形中纬带、一半全纬度均匀——两极高地不秃；
+  // r 平方分布 = 多小坑少中坑，贴近真月坑径谱）
+  for (let i = 0; i < 64; i++) {
+    const x = rnd() * W
+    const y = i % 2 === 0 ? bellY() : rnd() * H
+    const r = 12 + rnd() * rnd() * 22
+    oldCraters.push(wrap(x, 36, (cx) =>
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r * 0.75) + "' fill='rgba(45,50,57,.4)'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r) + "' fill='none' stroke='rgba(232,238,245,.5)' stroke-width='" + f1(Math.max(1.3, r * 0.13)) + "'/>",
+    ))
+  }
+  // 链坑 ×2（一排小坑 = 次生坑链/月沟缀坑，海报虚线肌理）
+  for (let c = 0; c < 2; c++) {
+    const x0 = [430, 1620][c]
+    const y0 = [760, 240][c]
+    const dir = [0.35, -0.5][c]
+    let chain = ''
+    for (let k = 0; k < 7; k++) {
+      const x = x0 + Math.cos(dir) * k * 26 + (rnd() - 0.5) * 8
+      const y = y0 + Math.sin(dir) * k * 26 + (rnd() - 0.5) * 8
+      const r = 7 + rnd() * 3
+      chain += "<circle cx='" + f1(x) + "' cy='" + f1(y) + "' r='" + f1(r) + "' fill='rgba(45,50,57,.3)' stroke='rgba(232,238,245,.4)' stroke-width='1.2'/>"
+    }
+    oldCraters.push(chain)
+  }
+  // 南半球坑群 ×40（参考矿质月面：南极附近高地坑挨坑到饱和；y 700-990）
+  for (let i = 0; i < 40; i++) {
+    const x = 480 + rnd() * 1040
+    const y = 700 + rnd() * 290
+    const r = 8 + rnd() * rnd() * 12
+    oldCraters.push(wrap(x, 30, (cx) =>
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r * 0.75) + "' fill='rgba(45,50,57,.38)'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r) + "' fill='none' stroke='rgba(232,238,245,.45)' stroke-width='" + f1(Math.max(1.1, r * 0.12)) + "'/>",
+    ))
+  }
+  // 微坑颗粒 ×240（r 3-7：降采样后化作颗粒噪点 = 矿质月面那种密到饱和的
+  // 微坑质感；服务原图直视与点云密度微调，不作结构）
+  for (let i = 0; i < 240; i++) {
+    const x = rnd() * W
+    const y = rnd() * H
+    const r = 3 + rnd() * 4
+    oldCraters.push(wrap(x, 10, (cx) =>
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r) + "' fill='rgba(42,47,54,.34)'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(y) + "' r='" + f1(r + 0.8) + "' fill='none' stroke='rgba(232,238,245,.28)' stroke-width='1'/>",
+    ))
+  }
+  // 年轻亮坑 ×5：落点仿真（雨海内 Timocharis 位/静海/云海缘/风暴洋/丰富海）；
+  // 喷发毯 = 径向渐隐亮晕
+  const young: Array<{ x: number; y: number; r: number }> = [
+    { x: 1030, y: 300, r: 16 }, { x: 1160, y: 470, r: 20 }, { x: 940, y: 585, r: 18 },
+    { x: 660, y: 500, r: 14 }, { x: 1290, y: 560, r: 12 },
+  ]
+  for (const c of young) {
+    newCraters.push(
+      "<circle cx='" + c.x + "' cy='" + c.y + "' r='" + f1(c.r * 2.3) + "' fill='url(%23gradEjecta)'/>" +
+      "<circle cx='" + c.x + "' cy='" + c.y + "' r='" + f1(c.r * 0.76) + "' fill='rgba(38,42,49,.5)'/>" +
+      "<circle cx='" + c.x + "' cy='" + c.y + "' r='" + f1(c.r) + "' fill='none' stroke='rgba(238,243,249,.75)' stroke-width='" + f1(c.r * 0.12) + "'/>" +
+      craterArcs(c.x, c.y, c.r, '.6') +
+      "<circle cx='" + c.x + "' cy='" + c.y + "' r='" + f1(c.r * 0.12) + "' fill='rgba(238,243,249,.6)'/>",
+    )
+  }
+  // 射纹大坑 ×3（仿真位）：第谷 Tycho 居南半球 = 全月最主宰的射纹系统（24 条
+  // 楔形射纹横跨半盘）；哥白尼 Copernicus 居风暴洋东；开普勒 Kepler 居其西。
+  // 射纹 = 楔形三角（基部宽 → 尖梢收 0，真射纹的收束感）
+  const rayed: Array<{ x: number; y: number; r: number; n: number; l0: number; l1: number }> = [
+    { x: 927, y: 759, r: 42, n: 24, l0: 3.5, l1: 13 },
+    { x: 880, y: 457, r: 46, n: 18, l0: 3, l1: 8 },
+    { x: 780, y: 466, r: 26, n: 14, l0: 2.5, l1: 5 },
+  ]
+  for (const c of rayed) {
+    // 射纹只存参数（角度/长度/基宽），坐标在 wrap 回调里按 cx 重算
+    const raySpec: Array<{ a: number; len: number; w: number }> = []
+    for (let k = 0; k < c.n; k++) {
+      raySpec.push({ a: rnd() * Math.PI * 2, len: c.r * (c.l0 + rnd() * (c.l1 - c.l0)), w: 1.6 + rnd() * 2 })
+    }
+    newCraters.push(wrap(c.x, c.r * (c.l1 + 1), (cx) =>
+      "<circle cx='" + f1(cx) + "' cy='" + f1(c.y) + "' r='" + f1(c.r * 2.6) + "' fill='url(%23gradEjecta)'/>" +
+      "<g fill='rgba(230,238,248,.2)'>" + raySpec.map((ray) => {
+        const dx = Math.cos(ray.a)
+        const dy = Math.sin(ray.a)
+        const px = (-dy * ray.w) / 2
+        const py = (dx * ray.w) / 2
+        const bx = cx + dx * c.r * 0.9
+        const by = c.y + dy * c.r * 0.9
+        return "<polygon points='" + f1(bx + px) + ',' + f1(by + py) + ' ' + f1(bx - px) + ',' + f1(by - py) + ' ' + f1(cx + dx * ray.len) + ',' + f1(c.y + dy * ray.len) + "'/>"
+      }).join('') + "</g>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(c.y) + "' r='" + f1(c.r * 0.76) + "' fill='rgba(40,44,51,.5)'/>" +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(c.y) + "' r='" + f1(c.r) + "' fill='none' stroke='rgba(238,243,249,.72)' stroke-width='" + f1(c.r * 0.12) + "'/>" +
+      craterArcs(cx, c.y, c.r, '.6') +
+      "<circle cx='" + f1(cx) + "' cy='" + f1(c.y) + "' r='" + f1(c.r * 0.13) + "' fill='rgba(238,243,249,.65)'/>",
+    ))
+  }
+  // 阿里斯塔克 Aristarchus：全月最亮斑，蓝白闪点（呼应参考图的蓝色点缀）——
+  // 大喷发毯 + 高亮环 + 亮芯，无射纹
+  newCraters.push(
+    "<circle cx='729' cy='377' r='39' fill='url(%23gradEjectaB)'/>" +
+    "<circle cx='729' cy='377' r='11.4' fill='rgba(38,42,49,.45)'/>" +
+    "<circle cx='729' cy='377' r='15' fill='none' stroke='rgba(215,232,255,.9)' stroke-width='1.8'/>" +
+    craterArcs(729, 377, 15, '.75') +
+    "<circle cx='729' cy='377' r='1.8' fill='rgba(230,240,255,.85)'/>",
+  )
+
+  /* ── 测量十字（星图味，稀疏 6 枚）── */
+  const crosses: string[] = []
+  for (let i = 0; i < 6; i++) {
+    const x = 120 + rnd() * (W - 240)
+    const y = 90 + rnd() * (H - 180)
+    crosses.push("<path d='M" + f1(x - 7) + ',' + f1(y) + ' h14 M' + f1(x) + ',' + f1(y - 7) + " v14'/>")
+  }
+
+  return [
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2048 1024'>",
+    '<defs>',
+    /* 反照率斑驳：大块低对比湍流（高地明度起伏）+ 线性拉伸增对比。
+     * 同时充作细粒/中粒网点的明度蒙版 = 真半调（亮点大密、暗点稀淡）。 */
+    "<filter id='albedo' x='-5%' y='-5%' width='110%' height='110%'>",
+    "<feTurbulence type='fractalNoise' baseFrequency='0.003 0.006' numOctaves='6' seed='29'/>",
+    "<feColorMatrix type='saturate' values='0'/>",
+    "<feComponentTransfer><feFuncR type='linear' slope='1.5' intercept='-0.18'/><feFuncG type='linear' slope='1.5' intercept='-0.18'/><feFuncB type='linear' slope='1.5' intercept='-0.18'/></feComponentTransfer>",
+    '</filter>',
+    /* 月海破边位移（填充/岸线描边共用同一 filter：湍流只随坐标走 →
+     * 两组形状位移场完全一致，岸线精确贴着破边） */
+    "<filter id='disloc' x='-10%' y='-10%' width='120%' height='120%'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.02' numOctaves='2' seed='17' result='t'/><feDisplacementMap in='SourceGraphic' in2='t' scale='85' xChannelSelector='R' yChannelSelector='G'/></filter>",
+    /* 高频颗粒（海报复印颗粒感） */
+    "<filter id='grain'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='5'/><feColorMatrix type='saturate' values='0'/></filter>",
+    /* 喷发毯：径向渐隐亮晕（年轻坑/射纹坑）；B = 蓝白变体（Aristarchus 专用） */
+    "<radialGradient id='gradEjecta'><stop offset='0' stop-color='rgba(238,243,249,.3)'/><stop offset='.55' stop-color='rgba(238,243,249,.12)'/><stop offset='1' stop-color='rgba(238,243,249,0)'/></radialGradient>",
+    "<radialGradient id='gradEjectaB'><stop offset='0' stop-color='rgba(168,200,255,.4)'/><stop offset='.55' stop-color='rgba(150,185,250,.14)'/><stop offset='1' stop-color='rgba(150,185,250,0)'/></radialGradient>",
+    /* 极区微亮（真月两极高地反照率略高；点云里极冠略密） */
+    "<linearGradient id='gradPolar' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgba(236,240,246,.12)'/><stop offset='.14' stop-color='rgba(236,240,246,0)'/><stop offset='.86' stop-color='rgba(236,240,246,0)'/><stop offset='1' stop-color='rgba(236,240,246,.12)'/></linearGradient>",
+    /* 三档网点（不同细腻程度的颗粒搭配）：hf 细粒 5px = 高地底噪纹理；hm 中粒 26px
+     * 经反照率蒙版 = 舷窗直视可读的真半调；hc 粗粒 20px = 月海内颗粒。网格尺寸按
+     * 引擎降采样（1024）标定：hm/hc 降采样后仍呈颗粒结构，hf 退化为细微亮度起伏。 */
+    "<pattern id='hf' width='5' height='5' patternUnits='userSpaceOnUse'><circle cx='1.3' cy='1.3' r='.8' fill='rgba(236,236,236,.2)'/></pattern>",
+    "<pattern id='hm' width='26' height='26' patternUnits='userSpaceOnUse'><circle cx='7' cy='7' r='4.2' fill='rgba(232,238,245,.42)'/></pattern>",
+    "<pattern id='hc' width='20' height='20' patternUnits='userSpaceOnUse'><circle cx='5.5' cy='5.5' r='3.4' fill='rgba(226,236,246,.45)'/></pattern>",
+    /* 网点蒙版：mhf = 反照率明度场挖去月海（细粒随明度呼吸）；mmc = 月海以内 */
+    "<mask id='mhf' maskUnits='userSpaceOnUse' x='0' y='0' width='2048' height='1024'><rect x='0' y='0' width='2048' height='1024' filter='url(%23albedo)'/><g>" + mariaShapes('black') + "</g></mask>",
+    "<mask id='mmc' maskUnits='userSpaceOnUse' x='0' y='0' width='2048' height='1024'><rect x='0' y='0' width='2048' height='1024' fill='black'/><g>" + mariaShapes('white') + "</g></mask>",
+    '</defs>',
+    /* 基底：中灰高地（整盘有粒子存在感）。rgb() 不用 #hex——data URI 里 # 会截断。
+     * 明度标定：引擎 b=((s-128)·1.4+128)·0.32——高地 150→≈51 盘体存在感；月海 ≈80→≈17
+     * 暗部疏点（有细节层次，不再是纯黑虚空）；环形山亮环 ≥200→63+ 亮棱。 */
+    "<rect x='0' y='0' width='2048' height='1024' fill='rgb(150,150,150)'/>",
+    /* 反照率斑驳（大块明暗起伏） */
+    "<rect x='0' y='0' width='2048' height='1024' filter='url(%23albedo)' opacity='.5'/>",
+    /* 远古盆地 + 高地坑群 + 链坑（月海之下，部分被淹成幽灵坑） */
+    "<g>" + oldCraters.join('') + '</g>',
+    /* 月海（位移破边）两层半透覆盖：古坑幽灵般透出；tone 色板微差（真月海也不均一，
+     * tone 4 = 危海/格里马尔迪/柏拉图式深黑）。压到 s≈76-84：引擎暗部稀疏层 1/7 撒点。 */
+    "<g filter='url(%23disloc)'>" + mariaShapes((i) => ['rgba(40,46,54,.55)', 'rgba(48,55,64,.5)', 'rgba(36,42,50,.58)', 'rgba(52,59,68,.48)', 'rgba(26,31,38,.62)'][marias[i].tone]) + '</g>',
+    "<g filter='url(%23disloc)'>" + mariaShapes((i) => ['rgba(40,46,54,.28)', 'rgba(48,55,64,.25)', 'rgba(36,42,50,.3)', 'rgba(52,59,68,.24)', 'rgba(26,31,38,.36)'][marias[i].tone]) + '</g>',
+    /* 岸线描边（同一位移场，贴破边） */
+    "<g filter='url(%23disloc)'>" + mariaStrokes('rgba(232,238,245,.18)', 3.5) + '</g>',
+    /* 海内细节：皱脊/月溪/海缘幽灵坑 */
+    "<g>" + mareDetails.join('') + '</g>',
+    /* 年轻亮坑 + 喷发毯 + 射纹大坑 + Aristarchus 蓝白闪点（月海之后，暗面亮点） */
+    "<g>" + newCraters.join('') + '</g>',
+    /* 矿质双色调（参考矿质月面摄影）：高地暖铜薄罩 + 月海钛蓝薄罩。引擎只采样
+     * R 通道：蓝罩 R 低 → 月海在点云里更稀疏；暖罩 R 高 → 高地略密——色调同时
+     * 服务直视与点云密度。 */
+    "<rect x='0' y='0' width='2048' height='1024' fill='rgba(196,168,120,.06)'/>",
+    "<g filter='url(%23disloc)'>" + mariaShapes('rgba(70,115,190,.15)') + '</g>',
+    /* 三档半调网点 */
+    "<rect x='0' y='0' width='2048' height='1024' fill='url(%23hf)' mask='url(%23mhf)'/>",
+    "<rect x='0' y='0' width='2048' height='1024' fill='url(%23hm)' mask='url(%23mhf)'/>",
+    "<rect x='0' y='0' width='2048' height='1024' fill='url(%23hc)' mask='url(%23mmc)'/>",
+    /* 极区微亮 */
+    "<rect x='0' y='0' width='2048' height='1024' fill='url(%23gradPolar)'/>",
+    /* 极淡经纬网（星图基准）+ 测量十字 */
+    "<g stroke='rgba(236,236,236,.07)' stroke-width='1'>",
+    "<line x1='512' y1='0' x2='512' y2='1024'/><line x1='1024' y1='0' x2='1024' y2='1024'/><line x1='1536' y1='0' x2='1536' y2='1024'/>",
+    "<line x1='0' y1='256' x2='2048' y2='256'/><line x1='0' y1='512' x2='2048' y2='512'/><line x1='0' y1='768' x2='2048' y2='768'/>",
+    '</g>',
+    "<g stroke='rgba(226,236,246,.3)' stroke-width='1.2' fill='none'>" + crosses.join('') + '</g>',
+    /* 高频颗粒 */
+    "<rect x='0' y='0' width='2048' height='1024' filter='url(%23grain)' opacity='.14'/>",
+    '</svg>',
+  ].join('')
+}
+
+export const ART_MOON_MAP = buildMoonMap()
 
 /** 环形轨道图：同心虚线环 + 中心徽记（贴对话区/欢迎屏居中）。
  *  环上 8 个节点白点不在此绘制——由 client 声纳层的行星点接替（沿原半径公转）。 */
@@ -309,11 +597,23 @@ export const PALIS_CSS = [
 
   /* ── ①b 动效节奏：终端气质的快起稳落（快攻缓收）。左右侧栏滑动、面板挤压、
      控件变色全挂内核这组令牌——一处覆盖全局同步，衔接自然一致；
-     prefers-reduced-motion 分支在内核/插件侧照旧生效（它们杀的是 transition 本身）── */
+     prefers-reduced-motion 分支在内核/插件侧照旧生效（它们杀的是 transition 本身）。
+     CRT 三层的浓度变量注册成 @property <number> 并挂进 html 的 transition：
+     intensity 档位切换时扫描线/噪点/暗角平滑渐变（变量插值会带进 background
+     rgba 里的 var() 引用）；不支持 @property 的引擎静默退回瞬时切换，无回归 ── */
   'html[data-palis-theme]{',
   '--ds-transition-duration:.16s;--ds-transition-duration-fast:.08s;--ds-transition-duration-slow:.24s;',
   '--ds-ease-in-out:cubic-bezier(.3,.85,.25,1);',
+  '--palis-noise-on:1;--palis-scan-on:1;--palis-vignette-on:1;',
+  'transition:--palis-scan-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-noise-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-vignette-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
+  '@property --palis-scan-alpha{syntax:"<number>";inherits:true;initial-value:.028}',
+  '@property --palis-noise-alpha{syntax:"<number>";inherits:true;initial-value:.022}',
+  '@property --palis-vignette-alpha{syntax:"<number>";inherits:true;initial-value:.22}',
+  /* on/off 开关变量：CRT 三层常驻、opacity 门控——切换走 opacity 渐隐渐现，不再瞬灭瞬现 */
+  'html[data-palis-theme][data-palis-noise="off"]{--palis-noise-on:0}',
+  'html[data-palis-theme][data-palis-scan="off"]{--palis-scan-on:0}',
+  'html[data-palis-theme][data-palis-vignette="off"]{--palis-vignette-on:0}',
 
   /* ── ② 全局铬 ── */
   'html[data-palis-theme][data-palis-square="on"] *,',
@@ -332,23 +632,29 @@ export const PALIS_CSS = [
   'html[data-palis-theme] ::-webkit-scrollbar-thumb:hover{background:#4a4a4a}',
   'html[data-palis-theme] :focus-visible{outline:1px solid var(--palis-accent) !important;outline-offset:-1px}',
 
-  /* ── ③ CRT 质感：噪点(html::before) / 扫描线+慢速扫描带(html::after) / 暗角(body::after) / 边框罩(body::before) ── */
-  'html[data-palis-theme][data-palis-noise="on"]::before{',
+  /* ── ③ CRT 质感：噪点(html::before) / 扫描线+慢速扫描带(html::after) / 暗角(body::after) / 边框罩(body::before)。
+     三层常驻、opacity × 开关变量门控（off → 渐隐、on → 渐现），不再按 on/off 增删伪元素 ── */
+  'html[data-palis-theme]::before{',
   'content:"";position:fixed;inset:0;z-index:2147482000;pointer-events:none;',
   'background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'2\' stitchTiles=\'stitch\'/><feColorMatrix type=\'saturate\' values=\'0\'/></filter><rect width=\'140\' height=\'140\' filter=\'url(%23n)\'/></svg>");',
-  'opacity:var(--palis-noise-alpha);',
+  'opacity:calc(var(--palis-noise-alpha)*var(--palis-noise-on));',
+  'transition:opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
   /* 扫描线：4px 周期细线（低透明度）+ 一条 11s 慢速下扫的 CRT 刷新带 */
-  'html[data-palis-theme][data-palis-scan="on"]::after{',
+  'html[data-palis-theme]::after{',
   'content:"";position:fixed;inset:0;z-index:2147482000;pointer-events:none;',
   'background-image:repeating-linear-gradient(0deg,rgba(255,255,255,var(--palis-scan-alpha)) 0 1px,transparent 1px 4px),linear-gradient(180deg,transparent 0%,rgba(255,255,255,.026) 46%,rgba(255,255,255,.026) 54%,transparent 100%);',
   'background-size:100% 100%,100% 240%;background-position:0 0,0 -240%;',
+  'opacity:var(--palis-scan-on);',
+  'transition:opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   'animation:palis-crt-sweep 11s linear infinite;',
   '}',
   '@keyframes palis-crt-sweep{from{background-position:0 0,0 -240%}to{background-position:0 0,0 140%}}',
-  'html[data-palis-theme][data-palis-vignette="on"] body::after{',
+  'html[data-palis-theme] body::after{',
   'content:"";position:fixed;inset:0;z-index:2147482000;pointer-events:none;',
   'background:radial-gradient(ellipse 92% 84% at 50% 46%,transparent 55%,rgba(0,0,0,var(--palis-vignette-alpha)) 100%);',
+  'opacity:var(--palis-vignette-on);',
+  'transition:opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
   /* CRT 边框罩：屏幕内沿压暗 + 细边框（增强"设备"感） */
   'html[data-palis-theme] body::before{',
@@ -379,6 +685,8 @@ export const PALIS_CSS = [
   '}',
   'html[data-palis-theme] [data-chat-flow-key][data-chat-flow-kind="tool-call"]{',
   'border-left:2px solid rgba(236,236,236,.1);padding-left:10px;margin-left:-2px;',
+  /* 工具调用行 = 蓝图上的"施工区"：135° 细斜纹区分于 assistant 的蓝轨渐变 */
+  'background-image:repeating-linear-gradient(135deg,rgba(236,236,236,.022) 0 5px,transparent 5px 10px)',
   '}',
   /* 消息角色标签（本内核 conversation 视图实际渲染的 kind：assistant-step / tool-call；
      保留 user/steering/context/command/agent/assistant 选择器以兼容内核后续版本） */
@@ -482,7 +790,9 @@ export const PALIS_CSS = [
   'html[data-palis-theme] [data-slot="conversation.hero.agentPreset"] > *{',
   'background:linear-gradient(180deg,#1c1c1c,#101010);border-bottom:1px solid var(--palis-border);',
   '}',
-  /* 辉光（标题与品牌文字） */
+  /* 辉光（标题与品牌文字）；transition 挂全量标题选择器——on/off 切换时辉光渐显渐隐 */
+  'html[data-palis-theme] h1,html[data-palis-theme] h2,html[data-palis-theme] h3{',
+  'transition:text-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out)}',
   'html[data-palis-theme][data-palis-glow="on"] h1,',
   'html[data-palis-theme][data-palis-glow="on"] h2,',
   'html[data-palis-theme][data-palis-glow="on"] h3{text-shadow:0 0 10px rgba(43,95,217,.5)}',
@@ -491,8 +801,15 @@ export const PALIS_CSS = [
      无光照无辉光、固定曝光压暗——质感全部来自构成元素（等高线/经纬网/网点/数据刻度/表面粒子）。
      外包 HUD 几何层（细实线环/十字准线/live 代码读数）。
      球体之下另有卫星轨道环（掠过球盘的弧段被遮蔽）── */
-  '.palis-globe{position:absolute;right:-560px;top:50%;width:1100px;height:1100px;',
-  'transform:translateY(-50%);pointer-events:none;z-index:-1}',
+  /* 球体尺寸随视口缩放（超宽屏不再显得细碎）：1920 及以下保持 1100 原样，
+     3840 超宽 → 1500px 上限；露出量用 translateX 表达（% 相对元素自身宽度——
+     right 的 % 是相对容器的，不能用），半弧露出恒 540px 与球径解耦 */
+  '.palis-globe{position:absolute;right:0;top:50%;width:min(1500px,max(1100px,56vw));height:min(1500px,max(1100px,56vw));',
+  '--moon-x:calc(100% - 540px);transform:translateY(-50%) translateX(var(--moon-x));pointer-events:none;z-index:-1;',
+  /* 月出动效：transform 过渡挂全局节奏令牌——侧栏收放 → 满月滑出/收回，快攻缓收 */
+  'transition:transform var(--ds-transition-duration-slow,.24s) var(--ds-ease-in-out,ease)}',
+  /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘滑进视野 */
+  'html[data-palis-moon="full"] .palis-globe{--moon-x:60px}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
@@ -539,18 +856,38 @@ export const PALIS_CSS = [
   '.palis-globe-ro2{bottom:9%;left:4%;letter-spacing:.2em;color:rgba(96,96,96,.55)}',
   'html[data-palis-artwork="off"] .palis-globe{display:none!important}',
   'html:not([data-palis-theme]) .palis-globe{display:none!important}',
-  /* 欢迎屏（hero 态）：天体右移更多，只露左弧 */
-  '[data-phase="hero"] .palis-globe{right:-660px;top:50%}',
+  /* 星尘漂移场：与 globe 同挂 [data-phase]、同负 z；DOM 序在其前 = 画在其下 */
+  '.palis-starfield{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1}',
+  'html[data-palis-artwork="off"] .palis-starfield{display:none!important}',
+  'html:not([data-palis-theme]) .palis-starfield{display:none!important}',
+  /* 欢迎屏（hero 态）：天体右移更多，只露左弧（440px，同 translateX 基准） */
+  '[data-phase="hero"] .palis-globe{--moon-x:calc(100% - 440px)}',
 
   /* ── ⑤ 开机自检覆盖层 ── */
-  '.palis-boot{position:fixed;inset:0;z-index:2147484000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050505;color:#e8e8e8;font-family:var(--palis-font-mono,monospace);opacity:1;transition:opacity .45s ease}',
+  '.palis-boot{position:fixed;inset:0;z-index:2147484000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050505;color:#e8e8e8;font-family:var(--palis-font-mono,monospace);opacity:1;transition:opacity .45s ease;animation:palis-boot-on .55s cubic-bezier(.2,.8,.3,1)}',
+  /* CRT 点火入场：亮线水平展开（clip-path 收敛/展开 + 亮度闪光），与 POWER 通断电同族 */
+  '@keyframes palis-boot-on{0%{clip-path:inset(49.6% 0 49.6% 0);filter:brightness(2.4)}55%{clip-path:inset(0 0 0 0);filter:brightness(1.5)}100%{clip-path:inset(0 0 0 0);filter:brightness(1)}}',
   '.palis-boot.off{opacity:0;pointer-events:none}',
-  '.palis-boot .pb-title{font-size:30px;letter-spacing:.4em;font-weight:600;color:#ececec;margin:0;text-shadow:0 0 18px rgba(43,95,217,.4)}',
-  '.palis-boot .pb-sub{margin-top:14px;font-size:12px;letter-spacing:.3em;color:#8f8f8f}',
-  '.palis-boot .pb-sub b{color:#2b5fd9;font-weight:400}',
-  '.palis-boot .pb-bar{width:300px;height:2px;margin-top:26px;background:#1d1d1d;overflow:hidden;position:relative}',
+  /* 覆盖层自带扫描线 + 暗角（开机即入 CRT 质感，不再是秃黑屏） */
+  ".palis-boot::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.55));pointer-events:none}",
+  '.palis-boot>*{position:relative;z-index:1}',
+  /* 圆形视窗：月面贴图横向平移 = 舷窗里转动的月球（呼应 PALIS 09A 参考屏的大圆窗） */
+  '.palis-boot .pb-port{position:relative;width:380px;height:380px;border-radius:50%;overflow:hidden;border:1px solid rgba(236,236,236,.2);box-shadow:0 0 60px rgba(43,95,217,.08),inset 0 0 40px rgba(0,0,0,.4)}',
+  '.palis-boot .pb-moon{position:absolute;left:0;top:0;height:100%;width:200%;max-width:none;opacity:.92;animation:palis-boot-pan 60s linear infinite}',
+  '@keyframes palis-boot-pan{from{transform:translateX(0)}to{transform:translateX(-50%)}}',
+  '.palis-boot .pb-port-ring{position:absolute;inset:12px;border:1px solid rgba(236,236,236,.14);border-radius:50%}',
+  /* 直角模式豁免：舷窗与内环是具象图形而非 UI 铬件，必须保持圆形（同 globe/sonar 先例） */
+  'html[data-palis-theme][data-palis-square="on"] .palis-boot .pb-port,',
+  'html[data-palis-theme][data-palis-square="on"] .palis-boot .pb-port-ring{border-radius:50% !important}',
+  '.palis-boot .pb-port-cross{position:absolute;left:50%;top:50%;width:6px;height:6px;border:1px solid rgba(111,156,255,.7);transform:translate(-50%,-50%)}',
+  /* 标题/副标叠在视窗中央（参考屏构图），文字带阴影压过月面 */
+  '.palis-boot .pb-port-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-shadow:0 1px 10px rgba(0,0,0,.85),0 0 3px rgba(0,0,0,.9)}',
+  '.palis-boot .pb-title{font-size:30px;letter-spacing:.4em;font-weight:600;color:#ececec;margin:0;text-indent:.4em}',
+  '.palis-boot .pb-sub{margin-top:14px;font-size:12px;letter-spacing:.3em;color:#b9c2cc;text-indent:.3em}',
+  '.palis-boot .pb-sub b{color:#6f9cff;font-weight:400}',
+  '.palis-boot .pb-bar{width:380px;height:2px;margin-top:30px;background:#1d1d1d;overflow:hidden;position:relative}',
   '.palis-boot .pb-bar i{display:block;position:absolute;inset:0;background:#2b5fd9;transform:scaleX(0);transform-origin:left;animation:palis-boot-bar 1.5s steps(30) forwards}',
-  '.palis-boot .pb-lines{margin-top:22px;width:340px;min-height:120px;font-size:11px;line-height:1.95;letter-spacing:.14em;color:#5c5c5c}',
+  '.palis-boot .pb-lines{margin-top:22px;width:380px;min-height:120px;font-size:11px;line-height:1.95;letter-spacing:.14em;color:#787878}',
   '.palis-boot .pb-lines span{display:block;opacity:0;animation:palis-boot-line .18s steps(2) forwards}',
   '.palis-boot .pb-lines .ok{color:#9fb4c9}',
   '.palis-boot .pb-lines .accent{color:#6f9cff}',
@@ -610,4 +947,25 @@ export const PANEL_CSS = [
   '.ptp-float:hover{border-color:#2b5fd9;color:#ececec}',
   '.ptp-float.on{background:#2b5fd9;border-color:#2b5fd9;color:#0a0a0a}',
   '.ptp-float:disabled{opacity:.5;cursor:wait}',
+  /* 预设行（一键切换渲染层组合）+ 状态行右侧操作提示 */
+  '.ptp-preset{display:flex;align-items:center;gap:10px;margin-bottom:14px}',
+  '.ptp-preset>.ptp-key{font-size:10px;letter-spacing:.2em;color:#2b5fd9;flex:none}',
+  '.ptp-status-hint{margin-left:auto;font-size:10px;letter-spacing:.1em;color:#3f3f3f}',
+
+  /* ── CRT 开关机闪屏（POWER 切换的签名瞬间；样式必须放 PANEL_CSS——"关机"闪屏
+     播放的瞬间 PALIS_CSS 已被摘除，只有常驻表能兜住）。水平亮线展开 = 通电、
+     收束成点熄灭 = 断电，暗罩负责遮住主题切换瞬间的裸 UI。reduced-motion 不播 ── */
+  '.palis-crt-fx{position:fixed;inset:0;z-index:2147483600;pointer-events:none;background:transparent}',
+  '.palis-crt-fx>i{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;',
+  'background:#e7efff;box-shadow:0 0 26px 5px rgba(96,140,255,.85),0 0 110px 30px rgba(43,95,217,.35)}',
+  '.palis-crt-fx.on{animation:palis-crt-veil-on .52s linear forwards}',
+  '.palis-crt-fx.on>i{animation:palis-crt-line-on .52s cubic-bezier(.2,.7,.3,1) forwards}',
+  '@keyframes palis-crt-veil-on{0%{background:rgba(2,3,6,1)}55%{background:rgba(2,3,6,.85)}100%{background:rgba(2,3,6,0)}}',
+  '@keyframes palis-crt-line-on{0%{transform:scaleX(0) scaleY(1);opacity:1}45%{transform:scaleX(1) scaleY(1)}',
+  '80%{transform:scaleX(1) scaleY(150)}100%{transform:scaleX(1) scaleY(320);opacity:0}}',
+  '.palis-crt-fx.off{animation:palis-crt-veil-off .46s linear forwards}',
+  '.palis-crt-fx.off>i{animation:palis-crt-line-off .46s cubic-bezier(.3,.6,.2,1) forwards}',
+  '@keyframes palis-crt-veil-off{0%{background:rgba(2,3,6,0)}12%{background:rgba(2,3,6,.96)}70%{background:rgba(2,3,6,.96)}100%{background:rgba(2,3,6,0)}}',
+  '@keyframes palis-crt-line-off{0%{transform:scaleX(.08) scaleY(160);opacity:0}20%{transform:scaleX(1) scaleY(1);opacity:1}',
+  '62%{transform:scaleX(1) scaleY(1);opacity:1}86%{transform:scaleX(.05) scaleY(5);opacity:.9}100%{transform:scaleX(0) scaleY(2);opacity:0}}',
 ].join('\n')

@@ -9,11 +9,12 @@ PALIS 档案终端主题面板 —— 为 DeepSeek Harness Web GUI 做的可开�
 
 ## 功能
 
-- **总开关 POWER**：一键接入/断开（写入持久化设置，刷新/重启后保持）。
+- **总开关 POWER**：一键接入/断开（写入持久化设置，刷新/重启后保持）；切换瞬间播 CRT 通断电闪屏（水平亮线展开/收束），`Ctrl+Alt+P` 随时快速开关。
+- **PRESET 预设**：CRT·MAX / TERMINAL / BARE 一键组合写入渲染层。
 - **CRT 强度**：LOW / MID / HIGH（扫描线、噪点、暗角三层的透明度档位）。
 - **渲染层**：扫描线（4px 周期细线 + 11s CRT 慢速扫描带）/ 噪点 / 暗角 / 辉光 独立开关。
 - **风格层**：等宽字体 / 直角 / 角色标签（[CLERK] [TOOL] [USER]…）/ 开机自检 / **背景图形** 独立开关。
-- **背景图形**：右侧**数据天体**（canvas 正交投影自转引擎：暗色有机地形 + 等高线 + 半调网点，球面真旋转）+ **HUD 几何层**（虚线轨道环、刻度环、十字准线、代码读数 LAT/LON/SECTOR、表面粒子尘埃）+ 居中**环形轨道图** + 星尘背景（参考 PALIS 自检/总目录屏）。
+- **背景图形**：右侧**数据天体**（canvas 正交投影**地形点云**引擎：~12.5k 颗地形粒子组成的自转球，密度跟地形走、加法混合微光、蓝火花点缀）+ **星尘漂移场**（全屏微粒缓漂闪烁）+ HUD 几何层（虚线轨道环、十字准线、live 代码读数 UTC/LON/SIGNAL、表面粒子尘埃）+ 居中**环形轨道图** + 星尘底纹（参考 PALIS 自检/总目录屏；粒子路线参考 TouchDesigner）。
 - **自检日志**：每次写操作的提交/冲突记录（`rev` 版本号可见）。
 - **浮动快捷开关**：右下角 PALIS 小方块，一键接入/断开。
 
@@ -50,3 +51,4 @@ dev_install_package {"dir": "E:/Deepseek harness/dsh-palis-theme-panel"}
 
 - 本内核（2026-08）的 slots 契约是 **`register(options, ReactComponent)`**——纯 DOM `{ render() {} }` 写法已失效（`settings.section` 会抛 React error #130；super-injector 旧面板即此问题，需要单独升级）。
 - 设置命名空间为 `palis-theme`（`~/.dsh/settings.yaml` 持久化）；旧版 `palis-theme`（profiles/node_modules/@dsh-local/palis-theme）已存根停用。
+- **停用/启用（三级）**：① 皮肤级开关 = 面板 POWER / `Ctrl+Alt+P` / 右下浮动按钮（保留插件运行，仅关皮肤）；② 外壳联动 = 桌面端皮肤切出 palis 即联动关主题（`/api/palis-theme` 路由）；③ cordis 级停用 = `~/.dsh/profiles/web/cordis.patch.yml` 加 `- id: palis-theme-panel` + `disabled: true`（watcher 热生效免重启；官方「插件列表」页是只读清单，任何插件都没有 UI 开关）。恢复 = 删掉该行。

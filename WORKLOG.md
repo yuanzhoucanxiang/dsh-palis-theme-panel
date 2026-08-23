@@ -903,5 +903,7 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
 - npm pack → dsh-local-palis-theme-panel-0.1.2.tgz（138KB；0.1.0.tgz 60KB 先例在）。
 - web profile bundles 直读工作区 lib（link），预览内核 4799 与桌面端（8772）
   双双跑上 0.1.2；桌面端重启 = 发布完成态。
+- git：`release: v0.1.2` ab3e9f0（7 文件 +1386/-193）已推 origin/main
+  （2adfb93..ab3e9f0）；tgz/lib 走 gitignore 不入仓。
 - 遗留：dsh-desktop BUILTIN_PLUGINS 里的 palis-theme 槽位（resources 缺目录，
   自动跳过）是另一条单文件扁平内置路线，本次未走——bundle 路线已验证够用。

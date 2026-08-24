@@ -805,18 +805,14 @@ export const PALIS_CSS = [
      3840 超宽 → 1500px 上限；露出量用 translateX 表达（% 相对元素自身宽度——
      right 的 % 是相对容器的，不能用），半弧露出恒 540px 与球径解耦 */
   '.palis-globe{position:absolute;right:0;top:50%;width:min(1500px,max(1100px,56vw));height:min(1500px,max(1100px,56vw));',
-  '--moon-x:calc(100% - 540px);transform:translateY(-50%) translateX(var(--moon-x));pointer-events:none;z-index:-1;',
-  /* will-change 常驻：滑动/揭示的 transform 过渡启动才临时提升合成层会晚一帧上图
-     （子层 canvas/shade/dither 掉队 → 单帧裸亮 = 「闪」；与 better-sidebar 面板
-     2758f3d 的 layer-promotion 同款，实测帧流捕获） */
+  'transform:translateY(-50%) translateX(calc(100% - 540px));pointer-events:none;z-index:-1;',
+  /* will-change 常驻：合成层在滑动前就存在（vs 过渡启动才提升=晚一帧上图） */
   'will-change:transform;',
-  /* 月出动效：位置变化永不动画（大画布移动的合成竞态=单帧裸亮/频闪根因，WORKLOG 26）；
-     揭示改为「隐身换位交叉淡化」：客户端置 swap 态快淡出→隐身期换位→淡入（纯 opacity，零位移） */
-  'transition:opacity var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,ease)}',
-  'html[data-palis-moon-swap="1"] .palis-globe{opacity:0}',
-  'html[data-palis-moon-swap="2"] .palis-globe{opacity:1}',
-  /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘就位 */
-  'html[data-palis-moon="full"] .palis-globe{--moon-x:60px}',
+  /* 月出动效：transform 直接状态值过渡（不用 var 组合——var 组合值过渡在本机
+     插值步进/振荡，WORKLOG 25/27；闪的真源是声纳 ping 环逐帧重尺寸，见 sonar 节） */
+  'transition:transform var(--ds-transition-duration-slow,.24s) var(--ds-ease-in-out,ease)}',
+  /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘滑进视野 */
+  'html[data-palis-moon="full"] .palis-globe{transform:translateY(-50%) translateX(60px)}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
@@ -864,7 +860,7 @@ export const PALIS_CSS = [
   'html[data-palis-artwork="off"] .palis-starfield{display:none!important}',
   'html:not([data-palis-theme]) .palis-starfield{display:none!important}',
   /* 欢迎屏（hero 态）：天体右移更多，只露左弧（440px，同 translateX 基准） */
-  '[data-phase="hero"] .palis-globe{--moon-x:calc(100% - 440px)}',
+  '[data-phase="hero"] .palis-globe{transform:translateY(-50%) translateX(calc(100% - 440px))}',
 
   /* ── ⑤ 开机自检覆盖层 ── */
   '.palis-boot{position:fixed;inset:0;z-index:2147484000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050505;color:#e8e8e8;font-family:var(--palis-font-mono,monospace);opacity:1;transition:opacity .45s ease;animation:palis-boot-on .55s cubic-bezier(.2,.8,.3,1)}',

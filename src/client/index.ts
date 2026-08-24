@@ -644,10 +644,6 @@ function scheduleEnsureGlobe(): void {
 /* 月球移动期间冻结画布重绘：滑动时纹理静止=无 50ms 上传竞态（单帧裸亮根因，WORKLOG 25） */
 let moonFreezeUntil = 0
 
-/* 隐身换位计时器（syncMoonReveal 用） */
-let moonSwapTimer = 0
-let moonSwapTimer2 = 0
-
 function syncMoonReveal(): void {
   const root = document.documentElement
   const leftCollapsed = document.querySelector('[data-sidebar-collapsed]') !== null
@@ -655,21 +651,12 @@ function syncMoonReveal(): void {
   const rightCollapsed = rightW === '' || rightW === '0px'
   const full = leftCollapsed && rightCollapsed
   if ((root.getAttribute('data-palis-moon') === 'full') === full) return
-  // 换牌序列：swap=1 快淡出(0.1s) → 110ms 后隐身期换位(置/摘 full 属性) → swap=2 淡入(0.1s)。
-  // 月球位置永无 transform 动画——1100px 大画布移动的合成竞态=单帧裸亮/频闪（WORKLOG 26）。
-  clearTimeout(moonSwapTimer)
-  clearTimeout(moonSwapTimer2)
-  root.setAttribute('data-palis-moon-swap', '1')
-  moonFreezeUntil = performance.now() + 700 // 换牌全程冻结画布重绘
-  sonarFreezeUntil = moonFreezeUntil // 同一个窗口冻结声纳（侧栏过渡期禁止几何重布局/动画插值）
-  moonSwapTimer = setTimeout(() => {
-    if (full) root.setAttribute('data-palis-moon', 'full')
-    else root.removeAttribute('data-palis-moon')
-    root.setAttribute('data-palis-moon-swap', '2')
-    moonSwapTimer2 = setTimeout(() => {
-      root.removeAttribute('data-palis-moon-swap')
-    }, 140)
-  }, 110)
+  if (full) root.setAttribute('data-palis-moon', 'full')
+  else root.removeAttribute('data-palis-moon')
+  // 过渡期冻结：滑动全程禁止月球画布重绘（无上传竞态）+ 声纳几何/动画落盘
+  // （ping 环逐帧重尺寸会把插值顶爆为单帧亮闪——闪的最终根因，WORKLOG 25/27）
+  moonFreezeUntil = performance.now() + 700
+  sonarFreezeUntil = moonFreezeUntil
 }
 
 /* ═══ 声线波动条（composer 顶边蓝线 → 随 AI 思考/输出起伏）═══
@@ -876,6 +863,7 @@ let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
 let sonarPlanets: SonarPlanet[] = []
 let sonarScale = 0
+let sonarLastPingD = 0 // ping 环当前直径（阈值门用）
 let sonarFreezeUntil = 0 // 侧栏过渡期冻结：ResizeObserver 逐帧重布局会把 ping 环动画插值顶到最坏帧（单帧爆亮，WORKLOG 27）
 let orbitRaf = 0
 let orbitLast = 0
@@ -913,8 +901,12 @@ function layoutSonar(host: HTMLElement): void {
     ring.el.style.width = d.toFixed(1) + 'px'
     ring.el.style.height = d.toFixed(1) + 'px'
   }
-  // ping 环定径：保底 760px，超宽屏按 1.1·S 越过最外轨道环（r=430 → 0.86·S）
+  // ping 环定径：保底 760px，超宽屏按 1.1·S 越过最外轨道环（r=430 → 0.86·S）。
+  // 仅增量 >40px 才重尺寸（构建期已定一次）：ping 环是 6.4s 无限动画元素，逐帧改
+  // width/margin 会把动画插值顶爆成单帧亮闪（WORKLOG 25/27 最终定案）。
   const pingD = Math.max(760, 1.1 * s)
+  if (Math.abs(sonarLastPingD - pingD) <= 40) return
+  sonarLastPingD = pingD
   sonarEl.querySelectorAll<HTMLElement>('i').forEach((ping) => {
     ping.style.width = pingD.toFixed(1) + 'px'
     ping.style.height = pingD.toFixed(1) + 'px'

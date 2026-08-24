@@ -1,6 +1,6 @@
 {
   "name": "@dsh-local/palis-theme-panel",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "PALIS 档案终端主题面板：可开关的深度换肤（内核令牌覆盖 + CRT 质感 + 开机自检动画）",
   "private": true,
   "type": "module",

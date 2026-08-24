@@ -502,6 +502,7 @@ let starCanvas: HTMLCanvasElement | null = null
 let starCtx: CanvasRenderingContext2D | null = null
 let starRaf = 0
 let starLast = 0
+let starFrameSkip = false // 隔帧重绘门（见 starFrame）
 let starDots: StarDot[] = []
 let starResizeObs: ResizeObserver | null = null
 
@@ -576,6 +577,9 @@ function starFrame(t: number): void {
   if (starCanvas === null || !starCanvas.isConnected) return
   const dt = starLast > 0 ? Math.min(0.1, (t - starLast) / 1000) : 0.016
   starLast = t
+  // 隔帧重绘（30fps）：240 星闪烁差异人眼无感，释放主线程给布局/滑动动画
+  starFrameSkip = !starFrameSkip
+  if (starFrameSkip) { starRaf = requestAnimationFrame(starFrame); return }
   drawStars(t, dt)
   starRaf = requestAnimationFrame(starFrame)
 }
@@ -780,8 +784,11 @@ function scanWave(): void {
   const now = Date.now()
   if (now - waveLastScan < WAVE_SCAN_MS) return
   waveLastScan = now
-  if (document.querySelector('[data-streaming]') !== null) waveLastSeen = now
-  waveBoost = Math.max(waveBoost * 0.55, Math.min(1, waveMutations / 24))
+  const streaming = document.querySelector('[data-streaming]') !== null
+  if (streaming) waveLastSeen = now
+  // 突变计数只在流式活动期生效：侧栏收放等结构性 DOM 突变风暴会误抬 waveBoost
+  // （波动条振幅异常起伏，与闪同源的信号污染，WORKLOG 25/26）
+  waveBoost = streaming ? Math.max(waveBoost * 0.55, Math.min(1, waveMutations / 24)) : waveBoost * 0.55
   waveMutations = 0
   if (now - waveLastSeen < WAVE_HOLD_MS) wakeWave()
 }

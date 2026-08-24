@@ -907,3 +907,38 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   （2adfb93..ab3e9f0）；tgz/lib 走 gitignore 不入仓。
 - 遗留：dsh-desktop BUILTIN_PLUGINS 里的 palis-theme 槽位（resources 缺目录，
   自动跳过）是另一条单文件扁平内置路线，本次未走——bundle 路线已验证够用。
+
+## 24. 满月揭示「闪烁」根治：揭示滑动与布局大换血解耦（2026-08-25）
+
+- **用户报修**：侧边栏收起/展开界面闪烁。前一轮已修 better-sidebar 右栏联动左栏
+  的误窄屏问题（fork 1f44e31，v0.15.3）；闪烁仍存。
+- **实机帧流取证**（真实桌面 app + CDP screencast 200 帧 @合成器节奏）：
+  左栏收起动画窗口内捕获**单帧全屏亮度突刺 +8.7**（26.9→35.6→26.9）——一帧
+  亮月帧紧接正常暗月帧。帧对比（亮度分块定位）：亮区在月球下半盘；裁剪对比确认
+  「闪帧 = 月球无遮光层的裸亮形态」。
+- **判别链**（层层排除）：
+  1. will-change 缺失 → 加入后突刺减半（35.6→29.5 尖峰，+8.7→+6.2）——层提升
+     竞态是**部分**原因，方向正确未消除；
+  2. `getBoundingClientRect` 逐帧采样显示位移「步进」——随后补测
+     PerformanceObserver longtask = **零长任务**，且与 better-sidebar 面板
+     做同帧双曲线对照：面板与月球**同一帧同步步进** → 步进是采样 API 对合成
+     动画的固有滞后伪影，不是动画卡顿；主线程没有饱和；
+  3. **最终定性**：闪帧是「月球滑动 × 布局列宽过渡」同窗口运行时的合成竞争
+     （大换血帧 月球子层/画布晚一帧上图）。
+- **修复（双管齐下，非补丁）**：
+  - `theme-core.ts` `.palis-globe` 加 `will-change: transform` 常驻——合成层
+    在动画前就存在（与 better-sidebar 面板 2758f3d 同款层提升修复模式）；
+  - **揭示方向（滑入）挂同长 transition-delay**（`--ds-transition-duration-slow`）：
+    月球等布局列宽过渡落定后在安静帧上滑，与侧栏收放完全错峰；隐藏方向不延迟
+    （开侧栏立即收月——延迟只加在 `html[data-palis-moon="full"]` 规则的 transition）。
+- **验证**（真实桌面重启后同法 screencast）：修复后全窗口亮度曲线**零突刺**；
+  月球揭示仍旧到位（帧流 late 帧 = 完整满月）、隐藏即时响应；此前左栏稳定
+  回归保持。月球位移仍经 `--moon-x`（状态只有 hero/full 两档，改造为直接
+  transform 值的路线未做——延迟方案已闭环且零回归）。
+- **坑**：①bash 双引号里的反引号会被命令替换吃掉（CHANGELOG 一段被吃，python
+  修正）——含 markdown 反引号的文本写入一律用 Write 工具或 python；②screencast
+  是 jpeg 有损编码，闪帧虽为真实帧但**单帧数据要先跨帧互证**（三帧对比+亮度
+  分块）再下结论；③测合成动画的平滑度不能用 getBoundingClientRect 采样（主线程
+  滞后采样），要用 longtask + 多次独立测量交叉验证。
+
+— 署名：ox-alpha（2026-08-25）

@@ -1011,3 +1011,20 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   步进 0（原 1-2）；4 连点 toggle 尖峰 0。
 
 — 署名：ox-alpha（2026-08-25）
+
+## 29. 卡顿根治：CRT 扫描频带拆独立层（transform 动画），帧预算双指标归零（2026-08-25）
+
+- **用户**：「侧边栏展开收起时有卡顿感」。
+- **元凶**：`html::after` 全屏 CRT 覆盖层带 `palis-crt-sweep 11s linear infinite` 的
+  **background-position 动画**——全视口背景位置逐帧重绘，永不停歇地与所有
+  过渡动画抢帧（即使 on/off 切换，动画层常驻）。
+- **修复**：频带拆到 client 注入的 `.palis-crt-sweep` 独立固定层（240% 高渐变带 +
+  `transform: translateY` 动画，合成器友好零逐帧绘制）；`html::after` 只留静态
+  扫描线。挂载/拆卸接线进 runtime effect（与 moon/星场同模式）。
+- **量化**（页面侧 rAF 帧间隔卡顿表，3 连点 toggle）：
+  修复前一帧间隔最大 ~139ms 级步进（滑动曲线佐证）；修复后 **214 帧平均 8ms、
+  最大 24ms、>26ms 掉帧 0、>34ms 0**——零卡顿。闪回归尖峰 0。
+- **新工具**：`backups/session-repair/jank-meter.cjs`（rAF 帧间隔表：avg/max/
+  drops>26/34），帧预算问题从此可量化、可回归。
+
+— 署名：ox-alpha（2026-08-25）

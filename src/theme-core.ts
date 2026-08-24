@@ -643,13 +643,19 @@ export const PALIS_CSS = [
   /* 扫描线：4px 周期细线（低透明度）+ 一条 11s 慢速下扫的 CRT 刷新带 */
   'html[data-palis-theme]::after{',
   'content:"";position:fixed;inset:0;z-index:2147482000;pointer-events:none;',
-  'background-image:repeating-linear-gradient(0deg,rgba(255,255,255,var(--palis-scan-alpha)) 0 1px,transparent 1px 4px),linear-gradient(180deg,transparent 0%,rgba(255,255,255,.026) 46%,rgba(255,255,255,.026) 54%,transparent 100%);',
-  'background-size:100% 100%,100% 240%;background-position:0 0,0 -240%;',
+  /* 扫描线静态层（频带已拆到 .palis-crt-sweep 独立层——transform 动画，合成器友好；
+     background-position 全屏逐帧重绘的旧动画会是所有过渡的持续抢帧者） */
+  'background-image:repeating-linear-gradient(0deg,rgba(255,255,255,var(--palis-scan-alpha)) 0 1px,transparent 1px 4px);',
+  'background-size:100% 100%;',
   'opacity:var(--palis-scan-on);',
   'transition:opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
-  'animation:palis-crt-sweep 11s linear infinite;',
   '}',
-  '@keyframes palis-crt-sweep{from{background-position:0 0,0 -240%}to{background-position:0 0,0 140%}}',
+  /* CRT 扫描频带（client 注入 .palis-crt-sweep）：240% 高渐变带，transform 下移扫过全屏 */
+  '.palis-crt-sweep{position:fixed;inset:0;pointer-events:none;z-index:2147482000;overflow:hidden;opacity:var(--palis-scan-on);transition:opacity var(--ds-transition-duration-slow) var(--ds-ease-in-out)}',
+  '.palis-crt-sweep::before{content:"";position:absolute;left:0;right:0;top:0;height:240%;',
+  'background:linear-gradient(180deg,transparent 0%,rgba(255,255,255,.026) 46%,rgba(255,255,255,.026) 54%,transparent 100%);',
+  'animation:palis-crt-sweep 11s linear infinite;transform:translateY(-100%)}',
+  '@keyframes palis-crt-sweep{from{transform:translateY(-100%)}to{transform:translateY(0)}}',
   'html[data-palis-theme] body::after{',
   'content:"";position:fixed;inset:0;z-index:2147482000;pointer-events:none;',
   'background:radial-gradient(ellipse 92% 84% at 50% 46%,transparent 55%,rgba(0,0,0,var(--palis-vignette-alpha)) 100%);',

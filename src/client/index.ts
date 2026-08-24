@@ -614,6 +614,22 @@ function ensureStarfield(host: Element): void {
 }
 
 /** 幂等挂载：主题开启 + 图形开启时，把月球插到会话根容器（不随消息滚动；宿主更换自动重挂）。 */
+/** 幂等挂载 CRT 扫描频带（固定层，transform 动画=合成器友好；
+ *  旧实现把频带并入 html::after 的 background-position 动画=全屏逐帧重绘，抢所有过渡的帧）。 */
+function ensureCrtSweep(): void {
+  if (!current.enabled) {
+    crtSweepEl?.remove()
+    crtSweepEl = null
+    return
+  }
+  if (crtSweepEl !== null && crtSweepEl.isConnected) return
+  crtSweepEl?.remove()
+  crtSweepEl = document.createElement('div')
+  crtSweepEl.className = 'palis-crt-sweep'
+  crtSweepEl.setAttribute('aria-hidden', 'true')
+  document.body.prepend(crtSweepEl)
+}
+
 function ensureGlobe(): void {
   if (!current.enabled || !current.artwork) {
     dropStarfield()
@@ -865,6 +881,7 @@ function drawWave(lane: WaveLane, t: number, amp: number): void {
 interface SonarRing { el: HTMLElement; ratio: number; angle: number; speed: number; f1: number; f2: number; p1: number; p2: number }
 interface SonarPlanet { el: HTMLElement; ratio: number; angle: number; speed: number }
 let sonarEl: HTMLDivElement | null = null
+let crtSweepEl: HTMLDivElement | null = null // 扫描频带独立层（transform 动画，免全屏 background-position 逐帧重绘）
 let sonarResize: ResizeObserver | null = null
 let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
@@ -1300,6 +1317,7 @@ export function apply(ctx: ClientContext): void {
     // 只信稳定契约：左侧栏 = 布局框架的 data-sidebar-collapsed 数据属性；
     // 右侧栏 = better-sidebar 写到 <html> 的 --dsh-sidebar-width 布局变量
     // （0px/未设置 = 收起）——不碰哈希类名（面板设计红线）。
+    ensureCrtSweep()
     syncMoonReveal()
     moonRevealObserver = new MutationObserver(() => syncMoonReveal())
     moonRevealObserver.observe(document.body, {
@@ -1357,6 +1375,8 @@ export function apply(ctx: ClientContext): void {
       globeEl?.remove()
       globeEl = null
       stopGlobeEngine()
+      crtSweepEl?.remove()
+      crtSweepEl = null
       dropStarfield()
       waveObserver?.disconnect()
       waveObserver = null

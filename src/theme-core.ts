@@ -806,18 +806,21 @@ export const PALIS_CSS = [
      right 的 % 是相对容器的，不能用），半弧露出恒 540px 与球径解耦 */
   '.palis-globe{position:absolute;right:0;top:50%;width:min(1500px,max(1100px,56vw));height:min(1500px,max(1100px,56vw));',
   '--moon-x:calc(100% - 540px);transform:translateY(-50%) translateX(var(--moon-x));pointer-events:none;z-index:-1;',
-  /* 月出动效：transform 过渡挂全局节奏令牌——侧栏收放 → 满月滑出/收回，快攻缓收 */
-  'transition:transform var(--ds-transition-duration-slow,.24s) var(--ds-ease-in-out,ease)}',
-  /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘滑进视野 */
+  /* will-change 常驻：滑动/揭示的 transform 过渡启动才临时提升合成层会晚一帧上图
+     （子层 canvas/shade/dither 掉队 → 单帧裸亮 = 「闪」；与 better-sidebar 面板
+     2758f3d 的 layer-promotion 同款，实测帧流捕获） */
+  'will-change:transform;',
+  /* 月出动效：位置变化永不动画（大画布移动的合成竞态=单帧裸亮/频闪根因，WORKLOG 26）；
+     揭示改为「隐身换位交叉淡化」：客户端置 swap 态快淡出→隐身期换位→淡入（纯 opacity，零位移） */
+  'transition:opacity var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,ease)}',
+  'html[data-palis-moon-swap="1"] .palis-globe{opacity:0}',
+  'html[data-palis-moon-swap="2"] .palis-globe{opacity:1}',
+  /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘就位 */
   'html[data-palis-moon="full"] .palis-globe{--moon-x:60px}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
-  /* 遮光层只留印刷质感的轻渐变（无光照可算，纯做影调收边） */
-  '.palis-globe-shade{position:absolute;inset:0;',
-  'background:radial-gradient(circle at 50% 6%,rgba(255,255,255,.07),transparent 14%),',
-  'linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.05) 34%,rgba(0,0,0,.2) 78%)}',
   '.palis-globe-dither{position:absolute;inset:0;opacity:.07;',
   'background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'2\'/><feColorMatrix type=\'saturate\' values=\'0\'/></filter><rect width=\'140\' height=\'140\' filter=\'url(%23n)\'/></svg>")}',
   '.palis-globe-dust{position:absolute;inset:0;opacity:.6;animation:palis-dust-tw 7s ease-in-out infinite}',

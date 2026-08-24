@@ -209,8 +209,6 @@ function buildGlobe(): HTMLDivElement {
   sphere.className = 'palis-globe-sphere'
   const canvas = document.createElement('canvas')
   canvas.className = 'palis-globe-canvas'
-  const shade = document.createElement('div')
-  shade.className = 'palis-globe-shade'
   const dither = document.createElement('div')
   dither.className = 'palis-globe-dither'
   // 表面粒子尘埃：三层异相闪烁（单元素 box-shadow 列表，低成本）；d3 是蓝色火花
@@ -232,7 +230,7 @@ function buildGlobe(): HTMLDivElement {
     el.style.boxShadow = dots.join(',')
     return el
   }
-  sphere.append(canvas, shade, dither, mkDust('d1', 16, false), mkDust('d2', 12, false), mkDust('d3', 5, true))
+  sphere.append(canvas, dither, mkDust('d1', 16, false), mkDust('d2', 12, false), mkDust('d3', 5, true))
   const geo = document.createElement('div')
   geo.className = 'palis-globe-geo'
   for (const cls of ['palis-globe-r1', 'palis-globe-r2', 'palis-globe-hline', 'palis-globe-vline', 'palis-globe-cross']) {
@@ -412,6 +410,21 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
       }
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
+      // 遮光/亮边渐变直接画进画布（与粒子同一纹理）：此前是独立 DOM 层
+      // （.palis-globe-shade），canvas 每 50ms 重绘上传新纹理时该层可能晚一帧
+      // 合成 → 单帧裸亮（实机区域级取证：右下角/中央带单帧 +25~35 再恢复）。
+      // 画进画布后月球明暗完全原子化，无层可竞态。
+      const g1 = ctx.createRadialGradient(SIZE / 2, SIZE * 0.06, 0, SIZE / 2, SIZE * 0.06, SIZE * 0.14)
+      g1.addColorStop(0, 'rgba(255,255,255,.07)')
+      g1.addColorStop(1, 'rgba(255,255,255,0)')
+      const g2 = ctx.createLinearGradient(0, 0, 0, SIZE)
+      g2.addColorStop(0, 'rgba(0,0,0,.16)')
+      g2.addColorStop(0.34, 'rgba(0,0,0,.05)')
+      g2.addColorStop(0.78, 'rgba(0,0,0,.2)')
+      ctx.fillStyle = g1
+      ctx.fillRect(0, 0, SIZE, SIZE)
+      ctx.fillStyle = g2
+      ctx.fillRect(0, 0, SIZE, SIZE)
     }
 
     // live 读数（500ms 节流覆写）：UTC 真时钟每拍跳动、LON 由自转角反解（真数据）、
@@ -464,7 +477,7 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
         lastRo = t
         writeRo()
       }
-      if (t - lastFrame >= 50) {
+      if (t - lastFrame >= 50 && t >= moonFreezeUntil) {
         lastFrame = t
         render()
       }
@@ -628,6 +641,13 @@ function scheduleEnsureGlobe(): void {
  *  左侧栏 = 布局框架的 data-sidebar-collapsed 数据属性（内核 layout 契约）；
  *  右侧栏 = better-sidebar 写到 <html> 的 --dsh-sidebar-width 布局变量
  *  （'0px'/未设置 = 收起）。条件不满足就摘除属性，球收回右缘半弧。 */
+/* 月球移动期间冻结画布重绘：滑动时纹理静止=无 50ms 上传竞态（单帧裸亮根因，WORKLOG 25） */
+let moonFreezeUntil = 0
+
+/* 隐身换位计时器（syncMoonReveal 用） */
+let moonSwapTimer = 0
+let moonSwapTimer2 = 0
+
 function syncMoonReveal(): void {
   const root = document.documentElement
   const leftCollapsed = document.querySelector('[data-sidebar-collapsed]') !== null
@@ -635,8 +655,21 @@ function syncMoonReveal(): void {
   const rightCollapsed = rightW === '' || rightW === '0px'
   const full = leftCollapsed && rightCollapsed
   if ((root.getAttribute('data-palis-moon') === 'full') === full) return
-  if (full) root.setAttribute('data-palis-moon', 'full')
-  else root.removeAttribute('data-palis-moon')
+  // 换牌序列：swap=1 快淡出(0.1s) → 110ms 后隐身期换位(置/摘 full 属性) → swap=2 淡入(0.1s)。
+  // 月球位置永无 transform 动画——1100px 大画布移动的合成竞态=单帧裸亮/频闪（WORKLOG 26）。
+  clearTimeout(moonSwapTimer)
+  clearTimeout(moonSwapTimer2)
+  root.setAttribute('data-palis-moon-swap', '1')
+  moonFreezeUntil = performance.now() + 700 // 换牌全程冻结画布重绘
+  sonarFreezeUntil = moonFreezeUntil // 同一个窗口冻结声纳（侧栏过渡期禁止几何重布局/动画插值）
+  moonSwapTimer = setTimeout(() => {
+    if (full) root.setAttribute('data-palis-moon', 'full')
+    else root.removeAttribute('data-palis-moon')
+    root.setAttribute('data-palis-moon-swap', '2')
+    moonSwapTimer2 = setTimeout(() => {
+      root.removeAttribute('data-palis-moon-swap')
+    }, 140)
+  }, 110)
 }
 
 /* ═══ 声线波动条（composer 顶边蓝线 → 随 AI 思考/输出起伏）═══
@@ -843,6 +876,7 @@ let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
 let sonarPlanets: SonarPlanet[] = []
 let sonarScale = 0
+let sonarFreezeUntil = 0 // 侧栏过渡期冻结：ResizeObserver 逐帧重布局会把 ping 环动画插值顶到最坏帧（单帧爆亮，WORKLOG 27）
 let orbitRaf = 0
 let orbitLast = 0
 let orbitHeat = 0
@@ -865,6 +899,7 @@ function removeSonar(): void {
  *  旋转环定径：mask 圆半径 = 元素边长 ×47% → 边长 = S × 环半径/470；行星轨道半径 = S × r/1000。 */
 function layoutSonar(host: HTMLElement): void {
   if (sonarEl === null) return
+  if (performance.now() < sonarFreezeUntil) return // 冻结窗：几何保持过渡前值
   const scroller = host.querySelector('[data-conversation-scroll]')
   if (!(scroller instanceof HTMLElement)) return
   const hr = host.getBoundingClientRect()
@@ -891,6 +926,7 @@ function layoutSonar(host: HTMLElement): void {
 function orbitFrame(t: number): void {
   orbitRaf = 0
   if (sonarEl === null || !sonarEl.isConnected) return
+  if (performance.now() < sonarFreezeUntil) { orbitRaf = requestAnimationFrame(orbitFrame); return } // 冻结窗：帧照跑不落盘
   const dt = orbitLast > 0 ? Math.min(0.1, (t - orbitLast) / 1000) : 0.016
   orbitLast = t
   const heatTarget = waveActive ? 1 : 0

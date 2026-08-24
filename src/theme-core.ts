@@ -602,8 +602,8 @@ export const PALIS_CSS = [
      intensity 档位切换时扫描线/噪点/暗角平滑渐变（变量插值会带进 background
      rgba 里的 var() 引用）；不支持 @property 的引擎静默退回瞬时切换，无回归 ── */
   'html[data-palis-theme]{',
-  '--ds-transition-duration:.16s;--ds-transition-duration-fast:.08s;--ds-transition-duration-slow:.24s;',
-  '--ds-ease-in-out:cubic-bezier(.3,.85,.25,1);',
+  '--ds-transition-duration:.16s;--ds-transition-duration-fast:.1s;--ds-transition-duration-slow:.3s;',
+  '--ds-ease-in-out:cubic-bezier(.4,0,.15,1);',
   '--palis-noise-on:1;--palis-scan-on:1;--palis-vignette-on:1;',
   'transition:--palis-scan-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-noise-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-vignette-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
@@ -812,7 +812,9 @@ export const PALIS_CSS = [
      插值步进/振荡，WORKLOG 25/27；闪的真源是声纳 ping 环逐帧重尺寸，见 sonar 节） */
   'transition:transform var(--ds-transition-duration-slow,.24s) var(--ds-ease-in-out,ease)}',
   /* 满月揭示：左右侧栏全收（客户端置 html[data-palis-moon="full"]）时整盘滑进视野 */
-  'html[data-palis-moon="full"] .palis-globe{transform:translateY(-50%) translateX(60px)}',
+  'html[data-palis-moon="full"] .palis-globe{transform:translateY(-50%) translateX(60px);',
+  /* 揭示方向滑入等布局列宽过渡猛冲段过去再动（安静帧上滑，掉帧更少）；隐藏方向保持即时 */
+  'transition:transform var(--ds-transition-duration-slow,.3s) var(--ds-ease-in-out,ease) var(--ds-transition-duration-fast,.1s)}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',

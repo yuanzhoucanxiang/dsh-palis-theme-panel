@@ -449,7 +449,8 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
       // 活动门：与声纳/行星同一节奏（快起慢落），球自转、卫星、进动一起加速
       const heatTarget = waveActive ? 1 : 0
       globeHeat += (heatTarget - globeHeat) * (heatTarget > globeHeat ? 0.05 : 0.015)
-      const boost = 1 + 2 * globeHeat
+      const boost = 1 + 2 * globeHeat + 3 * moonSlideBoost
+      moonSlideBoost *= 0.97 // 衰减：约 1.2s 回落正常转速
       angle += (dt * 2 * Math.PI * boost) / GLOBE_PERIOD_S
       if (sat !== null && orbit !== null) {
         satTheta += (dt * 2 * Math.PI * boost) / SAT_PERIOD_S
@@ -477,7 +478,7 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
         lastRo = t
         writeRo()
       }
-      if (t - lastFrame >= 50 && t >= moonFreezeUntil) {
+      if (t - lastFrame >= 50) {
         lastFrame = t
         render()
       }
@@ -661,8 +662,9 @@ function scheduleEnsureGlobe(): void {
  *  左侧栏 = 布局框架的 data-sidebar-collapsed 数据属性（内核 layout 契约）；
  *  右侧栏 = better-sidebar 写到 <html> 的 --dsh-sidebar-width 布局变量
  *  （'0px'/未设置 = 收起）。条件不满足就摘除属性，球收回右缘半弧。 */
-/* 月球移动期间冻结画布重绘：滑动时纹理静止=无 50ms 上传竞态（单帧裸亮根因，WORKLOG 25） */
-let moonFreezeUntil = 0
+/* 月球滑动旋转增强：揭示/隐藏翻转时给自转一个短暂加速（缓出衰减），
+ * 滑动自带甩动感；真闪源=声纳 ping 环（已阈值门根治），画布无需冻结 */
+let moonSlideBoost = 0
 
 function syncMoonReveal(): void {
   const root = document.documentElement
@@ -673,10 +675,10 @@ function syncMoonReveal(): void {
   if ((root.getAttribute('data-palis-moon') === 'full') === full) return
   if (full) root.setAttribute('data-palis-moon', 'full')
   else root.removeAttribute('data-palis-moon')
-  // 过渡期冻结：滑动全程禁止月球画布重绘（无上传竞态）+ 声纳几何/动画落盘
-  // （ping 环逐帧重尺寸会把插值顶爆为单帧亮闪——闪的最终根因，WORKLOG 25/27）
-  moonFreezeUntil = performance.now() + 700
-  sonarFreezeUntil = moonFreezeUntil
+  // 滑动旋转增强：翻转即加自转（引擎内指数衰减 ~1.2s）；同时冻结声纳几何/动画
+  // 落盘（ping 环阈值门之外的过渡期双保险）
+  moonSlideBoost = 1
+  sonarFreezeUntil = performance.now() + 700
 }
 
 /* ═══ 声线波动条（composer 顶边蓝线 → 随 AI 思考/输出起伏）═══

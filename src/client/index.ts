@@ -53,6 +53,7 @@ let panelTag: HTMLStyleElement | null = null
 let bootPlayed = false
 let current: PalisSettings = { ...DEFAULT_SETTINGS }
 let revision = 0
+let settingsPoll = 0 // host 侧变更轮询句柄（见 runtime effect）
 let floatBtn: HTMLButtonElement | null = null
 let globeEl: HTMLDivElement | null = null
 let globeObserver: MutationObserver | null = null
@@ -150,6 +151,7 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
   ensureGlobe()
   ensureWave()
   ensureSonar()
+  ensureCrtSweep()
   notify()
 }
 
@@ -1364,6 +1366,28 @@ export function apply(ctx: ClientContext): void {
         logLine('API UNAVAILABLE — 面板仅本地预览', 'err')
       }
     })()
+
+    // host 侧变更同步：外壳切皮肤 POST /api/palis-theme、其它标签页的面板写入，
+    // 都只落在 host 设置里——此前客户端仅启动 apiGet 一次，已打开页面要等重载才
+    // 生效。轻量 revision 轮询（2s，与旧内置 palis-theme 的轮询节奏一致）：
+    // revision 变了才回读全量并 applySettings（含 ensure* 家族的挂/摘，如 CRT 层）。
+    // 面板自身写入会同步本地 revision，轮询对它是 no-op。
+    settingsPoll = window.setInterval(() => {
+      void (async () => {
+        try {
+          const res = await fetch(API_ROUTE, { cache: 'no-store' })
+          if (!res.ok) return
+          const json = await res.json()
+          const rev = Number(json?.revision ?? 0)
+          if (rev !== revision) {
+            revision = rev
+            applySettings(normalizeSettings(json?.settings))
+          }
+        } catch {
+          /* 内核重启窗口等瞬态：下一轮再试 */
+        }
+      })()
+    }, 2000)
 
     return () => {
       window.removeEventListener('keydown', hotkey, true)

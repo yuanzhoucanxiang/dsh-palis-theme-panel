@@ -1121,3 +1121,20 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   单帧数据也可能来自编码器（screencast 为 jpeg 有损）。
 
 — 署名：ox-alpha（2026-08-25）
+
+## 32. 架构审查修正：CRT 层生命周期契约对齐 + host 变更轮询同步（2026-08-25）
+
+- **架构审查发现两处真实缺陷**：
+  1. `applySettings` 的 ensure* 家族（globe/wave/sonar 均内建 enabled=false 摘除
+     路径并在 applySettings 统一调用）漏了新加的 `ensureCrtSweep`——主题禁用后
+     扫描频带层残留 DOM（靠 CSS 摘除才不显形，纯巧合非契约）。修：补进家族，
+     禁用摘除/启用挂载走同一入口；
+  2. **host 侧变更推不到已打开页面**：外壳切皮肤 POST /api/palis-theme 只写 host
+     设置；客户端仅启动 apiGet 一次（「兼容轮询语义」是预留从未接线）——已打开
+     页面要等重载才反映主题开关，多标签页的面板写入也互不可见。修：客户端
+     revision 轮询（2s），变了才回读全量 applySettings；面板自身写入同步本地
+     revision 故对自身 no-op。
+- **验证**：POST theme:'' → ≤3s 内 sweep 层自动摘除（不重载）；theme:'palis' →
+  自动挂载；双向均过。
+
+— 署名：ox-alpha（2026-08-25）

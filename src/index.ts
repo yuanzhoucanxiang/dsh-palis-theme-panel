@@ -69,11 +69,11 @@ function readBody(req: any): Promise<string> {
   })
 }
 
-/** 只接受回环 Host（桌面版绑定 127.0.0.1；LAN 绑定下也不暴露设置面）。 */
+/** 只接受回环对端（桌面版绑定 127.0.0.1；LAN 绑定下也真拦截设置面）。
+ *  以 socket 对端地址为准——Host 头是客户端可任意伪造的，按头判断等于没防。 */
 function isLoopbackRequest(req: any): boolean {
-  const host = String(req?.headers?.host ?? '')
-  const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase()
-  return name === '127.0.0.1' || name === 'localhost' || name === '::1'
+  const addr = String(req?.socket?.remoteAddress ?? '')
+  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1'
 }
 
 export function apply(ctx: Context): void {

@@ -152,6 +152,7 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
   ensureWave()
   ensureSonar()
   ensureCrtSweep()
+  ensureFrame()
   notify()
 }
 
@@ -619,6 +620,29 @@ function ensureStarfield(host: Element): void {
 /** 幂等挂载：主题开启 + 图形开启时，把月球插到会话根容器（不随消息滚动；宿主更换自动重挂）。 */
 /** 幂等挂载 CRT 扫描频带（固定层，transform 动画=合成器友好；
  *  旧实现把频带并入 html::after 的 background-position 动画=全屏逐帧重绘，抢所有过渡的帧）。 */
+/** 幂等挂载 ASCII 取景框层：四角裁切标记 + 角落铭牌 + 滚动深度读数。
+ *  「整页是一份被归档观测的记录」的取景器语义；随主题启停挂/摘。 */
+function ensureFrame(): void {
+  if (!current.enabled) {
+    frameEl?.remove()
+    frameEl = null
+    return
+  }
+  if (frameEl !== null && frameEl.isConnected) return
+  frameEl?.remove()
+  const el = document.createElement('div')
+  el.className = 'palis-frame'
+  el.setAttribute('aria-hidden', 'true')
+  el.innerHTML =
+    '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>' +
+    '<span class="tl-tag">SYS//09A-C2</span>' +
+    '<span class="tr-tag">ARCHIVE TERMINAL</span>' +
+    '<span class="bl-read">SCROLL 000%</span>' +
+    '<span class="br-tag">REC</span>'
+  document.body.prepend(el)
+  frameEl = el
+}
+
 function ensureCrtSweep(): void {
   if (!current.enabled) {
     crtSweepEl?.remove()
@@ -886,6 +910,24 @@ interface SonarRing { el: HTMLElement; ratio: number; angle: number; speed: numb
 interface SonarPlanet { el: HTMLElement; ratio: number; angle: number; speed: number }
 let sonarEl: HTMLDivElement | null = null
 let crtSweepEl: HTMLDivElement | null = null // 扫描频带独立层（transform 动画，免全屏 background-position 逐帧重绘）
+let frameEl: HTMLDivElement | null = null // ASCII 取景框层（四角标记/铭牌/滚动读数）
+let frameReadRaf = 0 // 读数 rAF 句柄
+
+/** 取景框滚动深度读数：rAF 节流，惰性定位会话滚动容器（window capture 捕获内层滚动）。 */
+function scheduleFrameReadout(): void {
+  const frame = frameEl
+  if (frame === null || frameReadRaf !== 0) return
+  frameReadRaf = requestAnimationFrame(() => {
+    frameReadRaf = 0
+    const read = frame.querySelector(".bl-read")
+    const scroller = document.querySelector("[data-conversation-scroll]")
+    if (read === null || !(scroller instanceof HTMLElement)) return
+    const max = scroller.scrollHeight - scroller.clientHeight
+    const pct = max > 0 ? Math.min(100, Math.max(0, Math.round((scroller.scrollTop / max) * 100))) : 0
+    const filled = Math.round(pct / 10)
+    read.textContent = "SCROLL " + String(pct).padStart(3, "0") + "% \u2555" + "\u2588".repeat(filled) + "\u2591".repeat(10 - filled) + "\u2561"
+  })
+}
 let sonarResize: ResizeObserver | null = null
 let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
@@ -1126,6 +1168,8 @@ function playBoot(): void {
     { text: 'IDENTITY_CHAIN ............... VERIFIED', cls: 'accent', delay: 620 },
     { text: 'CRT RENDER LAYER ............ ONLINE', cls: 'ok', delay: 800 },
     { text: 'ARCHIVE DIRECTORY ........... READY', cls: 'ok', delay: 980 },
+    { text: 'GROUND TRACK ............. LOCKED', cls: 'ok', delay: 1160 },
+    { text: 'VIEWFINDER [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591] ARMED', cls: 'accent', delay: 1340 },
   ]
   for (const item of seq) {
     const span = document.createElement('span')
@@ -1332,6 +1376,11 @@ export function apply(ctx: ClientContext): void {
     })
     moonRevealObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
 
+    // 取景框：滚动/尺寸变化时刷新左下 SCROLL 深度读数（capture 捕获内层滚动容器）
+    const frameScroll = (): void => scheduleFrameReadout()
+    window.addEventListener("scroll", frameScroll, { capture: true, passive: true })
+    window.addEventListener("resize", frameScroll, { passive: true })
+
     // 声线波动条：同一 observer 兼顾活动信号（data-streaming 置位/卸载）、
     // 输出突发计数（characterData ≈ token 落地）与 composer 重建重挂。
     waveResize = new ResizeObserver((entries) => {
@@ -1401,8 +1450,10 @@ export function apply(ctx: ClientContext): void {
       globeEl?.remove()
       globeEl = null
       stopGlobeEngine()
-      crtSweepEl?.remove()
-      crtSweepEl = null
+      window.removeEventListener("scroll", frameScroll, { capture: true })
+      window.removeEventListener("resize", frameScroll)
+      frameEl?.remove()
+      frameEl = null
       dropStarfield()
       waveObserver?.disconnect()
       waveObserver = null

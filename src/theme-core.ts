@@ -821,9 +821,24 @@ export const PALIS_CSS = [
   'html[data-palis-moon="full"] .palis-globe{transform:translateY(-50%) translateX(60px);',
   /* 揭示方向滑入等布局列宽过渡猛冲段过去再动（安静帧上滑，掉帧更少）；隐藏方向保持即时 */
   'transition:transform var(--ds-transition-duration-slow,.3s) var(--ds-ease-in-out,ease) var(--ds-transition-duration-fast,.1s)}',
+  /* 满月居中时的曝光增益：半弧黑底调的 0.32 曝光在整盘居中时太暗，揭示态提亮 */
+  'html[data-palis-moon="full"] .palis-globe{filter:brightness(1.6) contrast(1.1)}',
+  'html[data-palis-moon="full"] .palis-globe-geo::after{color:rgba(236,236,236,.4)}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
+  /* 地面轨道尺（GROUNDRACK）：盘底下缘的刻度带 + 中点游标 + 右侧铭牌——
+     「球在尺上被观测」的档案语义；geo 层无样式，刻度挂 geo::after 相对球根定位 */
+  '.palis-globe-geo{position:absolute;inset:0;pointer-events:none}',
+  '.palis-globe-geo::after{',
+  'content:"GROUND TRACK";position:absolute;left:100px;right:100px;bottom:76px;height:14px;',
+  'padding-top:9px;text-align:right;font-size:8px;letter-spacing:.26em;color:rgba(236,236,236,.24);',
+  'font-family:var(--palis-font-mono,monospace);',
+  'background:',
+  'repeating-linear-gradient(90deg,rgba(236,236,236,.20) 0 1px,transparent 1px 25px),',
+  'linear-gradient(90deg,rgba(236,236,236,.30) 0 1px,transparent 1px) center/2px 7px no-repeat,',
+  'linear-gradient(rgba(236,236,236,.14),rgba(236,236,236,.14)) left bottom/100% 1px no-repeat;',
+  '}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
   '.palis-globe-dither{position:absolute;inset:0;opacity:.07;',
   'background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'2\'/><feColorMatrix type=\'saturate\' values=\'0\'/></filter><rect width=\'140\' height=\'140\' filter=\'url(%23n)\'/></svg>")}',
@@ -900,6 +915,49 @@ export const PALIS_CSS = [
   '.palis-boot .pb-lines .accent{color:#6f9cff}',
   '@keyframes palis-boot-bar{to{transform:scaleX(1)}}',
   '@keyframes palis-boot-line{to{opacity:1}}',
+
+  /* ── ASCII 取景框层（client 注入 .palis-frame）：四角 L 形裁切标记 + 角落读数。
+     档案终端的「取景器」语义：整页是一份被归档观测的记录 ── */
+  '.palis-frame{position:fixed;inset:0;pointer-events:none;z-index:2147482300;font-family:var(--palis-font-mono,monospace)}',
+  '.palis-frame i{position:absolute;width:16px;height:16px;border:0 solid rgba(236,236,236,.30)}',
+  '.palis-frame i.tl{left:6px;top:6px;border-left-width:1px;border-top-width:1px}',
+  '.palis-frame i.tr{right:6px;top:6px;border-right-width:1px;border-top-width:1px}',
+  '.palis-frame i.bl{left:6px;bottom:6px;border-left-width:1px;border-bottom-width:1px}',
+  '.palis-frame i.br{right:6px;bottom:6px;border-right-width:1px;border-bottom-width:1px}',
+  '.palis-frame span{position:absolute;font-size:8px;letter-spacing:.22em;color:rgba(236,236,236,.30);white-space:nowrap}',
+  '.palis-frame .tl-tag{left:28px;top:9px}',
+  '.palis-frame .tr-tag{right:28px;top:9px}',
+  '.palis-frame .bl-read{left:10px;bottom:9px;color:rgba(111,156,255,.55)}',
+  '.palis-frame .br-tag{right:64px;bottom:52px;color:rgba(236,236,236,.22)}',
+
+  /* 会话区「磁带尺」：滚动容器顶边的刻度带 + 起始铭牌（随内容滚走=档案带头） */
+  'html[data-palis-theme] [data-conversation-scroll]::before{',
+  'content:"";position:absolute;top:0;left:0;right:0;height:7px;pointer-events:none;',
+  'background:repeating-linear-gradient(90deg,rgba(236,236,236,.16) 0 1px,transparent 1px 24px),linear-gradient(180deg,rgba(236,236,236,.12),transparent);',
+  '}',
+  'html[data-palis-theme] [data-conversation-scroll]::after{',
+  'content:"SECTOR 09A-C2 // TAPE START";position:absolute;top:11px;right:14px;pointer-events:none;',
+  'font-size:8px;letter-spacing:.24em;color:rgba(236,236,236,.26);font-family:var(--palis-font-mono,monospace);',
+  '}',
+
+  /* Composer 输入卡：左上铭牌压 accent 顶边（终端窗口标签耳）+ 四角 L 括号 */
+  'html[data-palis-theme] [data-composer-card]{position:relative}',
+  'html[data-palis-theme] [data-composer-card]::before{',
+  'content:"IN//09A";position:absolute;top:-8px;left:12px;z-index:2;background:#0a0a0a;padding:0 7px;',
+  'font-size:8px;letter-spacing:.26em;color:#5f83e8;font-family:var(--palis-font-mono,monospace);',
+  '}',
+  'html[data-palis-theme] [data-composer-card]::after{',
+  'content:"";position:absolute;inset:-5px;pointer-events:none;',
+  'background:',
+  'linear-gradient(#ececec55,#ececec55) left top/10px 1px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) left top/1px 10px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) right top/10px 1px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) right top/1px 10px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) left bottom/10px 1px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) left bottom/1px 10px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) right bottom/10px 1px no-repeat,',
+  'linear-gradient(#ececec55,#ececec55) right bottom/1px 10px no-repeat;',
+  'opacity:.5}',
 ].join('\n')
 
 /* ═══════════════════════════════════════════════════════════════════════

@@ -1150,3 +1150,28 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
 - 教训：**访问控制永远校验连接对端身份，不校验客户端自报的头**。
 
 — 署名：ox-alpha（2026-08-25）
+
+## 34. ASCII 取景框系统 + 细节打磨批（2026-08-25，用户「加入更多 ascii 风格元素」）
+
+- **新增 ASCII 元素**（全部走稳定契约，零哈希类名）：
+  1. **取景框层** `.palis-frame`（client 注入 ensure* 家族）：四角 L 形裁切标记 +
+     角落铭牌（SYS//09A-C2 / ARCHIVE TERMINAL / REC●）+ **左下 SCROLL 深度读数**
+     （`SCROLL 042% ▕██████░░░░▏`，window capture scroll + rAF 节流，惰性定位
+     会话滚动容器）——「整页是一份被归档观测的记录」的取景器语义；
+  2. **会话区磁带尺**：滚动容器 ::before 顶部刻度带（24px 间距 tick）+
+     ::after「SECTOR 09A-C2 // TAPE START」铭牌（随内容滚走=档案带头）；
+  3. **Composer 标签耳 + 角括号**：IN//09A 铭牌压 accent 顶边 + 四角 L 括号
+     （8 组 linear-gradient 拼角，伪元素空闲已确认）；
+  4. **球体地面轨道尺**：geo::after 盘底下缘刻度带（25px tick + 中点游标 +
+     GROUND TRACK 铭牌）——「球在尺上被观测」；
+  5. **开机自检仪表行**：GROUND TRACK ..... LOCKED / VIEWFINDER [██████████░░] ARMED。
+- **满月曝光增益**：揭示态 `filter:brightness(1.6) contrast(1.1)`——半弧黑底
+  调的 0.32 曝光在整盘居中时太暗（实测采样 avg alpha 40），揭示态提亮后
+  月面点云（月海点阵/高地/蓝卫星）清晰可读。
+- **验证**：隔离实例截图（art-desktop.png 半弧态 / art-fullmoon.png 满月态）
+  全元素就位；卡顿表 avg 9ms / max 24ms / 零掉帧；闪回归零尖峰。
+- **坑**：①测试实例外壳皮肤=deep 时，v0.2.1 新加的轮询会在启动 2s 后把主题
+  关掉（皮肤联动终于真正生效）——美术验证须先把实例皮肤设为 palis；②TS 模块级
+  可变量在 rAF 回调里失去 null 收窄——回调开头先存局部常量。
+
+— 署名：ox-alpha（2026-08-25）

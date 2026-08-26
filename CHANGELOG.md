@@ -1,3 +1,20 @@
+## 0.3.0 — 2026-08-25
+
+ASCII 取景框系统 + 细节打磨批。
+
+**新增**
+- 取景框层 .palis-frame：四角 L 裁切标记 + SYS//09A-C2 / ARCHIVE TERMINAL / REC 铭牌 + 左下 SCROLL 深度读数（ascii 仪表条）；
+- 会话区磁带尺（顶部刻度带 + TAPE START 铭牌）；
+- Composer IN//09A 标签耳 + 四角 L 括号；
+- 球体地面轨道尺（盘底刻度带 + GROUND TRACK 铭牌）；
+- 开机自检新增 GROUND TRACK LOCKED / VIEWFINDER ARMED 仪表行；
+- 满月揭示曝光增益（brightness 1.6 + contrast 1.1）——整盘居中时月面点云清晰可读。
+
+**验证**
+- 快速连点 4 次 toggle：零尖峰；卡顿表 avg 9ms / max 24ms / 零掉帧。
+
+— 署名：ox-alpha（2026-08-25）
+
 ## 0.2.1 — 2026-08-25
 
 安全修复。

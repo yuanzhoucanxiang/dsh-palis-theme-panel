@@ -936,6 +936,16 @@ let frameReadRaf = 0 // 读数 rAF 句柄
 let statusbarEl: HTMLDivElement | null = null // tmux 式底部状态栏
 let statusbarClock = 0 // UTC/相位钟句柄
 
+/** 磁带播放头：prepend 进滚动容器（随内容滚动，与磁带尺 ::before 对齐）。
+ *  transform 移动 = 合成器合成，不用 background-position/变量（避免逐帧样式重算）。 */
+function ensurePlayhead(sc: HTMLElement): void {
+  if (sc.querySelector(':scope > .palis-playhead') !== null) return
+  const el = document.createElement('div')
+  el.className = 'palis-playhead'
+  el.setAttribute('aria-hidden', 'true')
+  sc.prepend(el)
+}
+
 /** 取景框滚动深度读数：rAF 节流，惰性定位会话滚动容器（window capture 捕获内层滚动）。 */
 function scheduleFrameReadout(): void {
   const frame = frameEl
@@ -947,8 +957,22 @@ function scheduleFrameReadout(): void {
     if (read === null || !(scroller instanceof HTMLElement)) return
     const max = scroller.scrollHeight - scroller.clientHeight
     const pct = max > 0 ? Math.min(100, Math.max(0, Math.round((scroller.scrollTop / max) * 100))) : 0
-    const filled = Math.round(pct / 10)
-    read.textContent = "SCROLL " + String(pct).padStart(3, "0") + "% \u2555" + "\u2588".repeat(filled) + "\u2591".repeat(10 - filled) + "\u2561"
+    // 磁带走带：播放头（DOM+transform=合成器移动，零重算）滑到滚动比例处；
+    // 变量写入会触发滚动容器全子树样式重算=卡顿（WORKLOG §36）
+    ensurePlayhead(scroller)
+    const ph = scroller.querySelector(".palis-playhead")
+    if (ph instanceof HTMLElement) ph.style.transform = "translateX(" + Math.round((scroller.clientWidth - 3) * pct / 100) + "px)"
+    if (pct === 0) {
+      read.textContent = "TAPE//START"
+      read.style.color = ""
+    } else if (pct === 100) {
+      read.textContent = "TAPE//END"
+      read.style.color = "#6f9cff"
+    } else {
+      const filled = Math.round(pct / 10)
+      read.style.color = ""
+      read.textContent = "SCROLL " + String(pct).padStart(3, "0") + "% \u2555" + "\u2588".repeat(filled) + "\u2591".repeat(10 - filled) + "\u2561"
+    }
   })
 }
 let sonarResize: ResizeObserver | null = null

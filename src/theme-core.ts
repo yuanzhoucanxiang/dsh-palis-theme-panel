@@ -930,10 +930,18 @@ export const PALIS_CSS = [
   '.palis-frame .bl-read{left:10px;bottom:9px;color:rgba(111,156,255,.55)}',
   '.palis-frame .br-tag{right:64px;bottom:52px;color:rgba(236,236,236,.22)}',
 
+  '.palis-playhead{position:absolute;top:0;left:0;width:3px;height:7px;',
+  'background:rgba(111,156,255,.95);pointer-events:none;z-index:1;will-change:transform}',
+
   /* 会话区「磁带尺」：滚动容器顶边的刻度带 + 起始铭牌（随内容滚走=档案带头） */
   'html[data-palis-theme] [data-conversation-scroll]::before{',
   'content:"";position:absolute;top:0;left:0;right:0;height:7px;pointer-events:none;',
-  'background:repeating-linear-gradient(90deg,rgba(236,236,236,.16) 0 1px,transparent 1px 24px),linear-gradient(180deg,rgba(236,236,236,.12),transparent);',
+  'background-image:',
+  'repeating-linear-gradient(90deg,rgba(236,236,236,.16) 0 1px,transparent 1px 24px),',
+  'linear-gradient(180deg,rgba(236,236,236,.12),transparent);',
+  'background-size:auto,100% 7px;',
+  'background-repeat:repeat,no-repeat;',
+  'background-position:0 0,0 0;',
   '}',
   'html[data-palis-theme] [data-conversation-scroll]::after{',
   'content:"SECTOR 09A-C2 // TAPE START";position:absolute;top:11px;right:14px;pointer-events:none;',
@@ -958,7 +966,19 @@ export const PALIS_CSS = [
   /* 面板 titlebar：右侧 REV 铭牌 */
   '.ptp-titlebar::after{content:"REV·09A";margin-left:auto;color:#5c5c5c;letter-spacing:.24em}',
 
+  /* Hero 任务铭牌：欢迎屏顶部的远征编号（居中，档案语义） */
+  'html[data-palis-theme] [data-phase="hero"]::before{',
+  'content:"EXPEDITION // 09A — ARCHIVE OBSERVATION";position:absolute;top:16px;left:50%;transform:translateX(-50%);',
+  'font-size:8px;letter-spacing:.3em;color:rgba(236,236,236,.26);white-space:nowrap;pointer-events:none;',
+  'font-family:var(--palis-font-mono,monospace);',
+  '}',
+
   /* Composer 输入卡：左上铭牌压 accent 顶边（终端窗口标签耳）+ 四角 L 括号 */
+  /* 会话头双线规：header 底部主线 + 微光副线（档案分隔） */
+  'html[data-palis-theme] [data-slot="conversation.session.header"] > header{',
+  'border-bottom:1px solid rgba(236,236,236,.10);box-shadow:0 1px 0 rgba(236,236,236,.04);',
+  '}',
+
   'html[data-palis-theme] [data-composer-card]{position:relative}',
   'html[data-palis-theme] [data-composer-card]::before{',
   'content:"IN//09A";position:absolute;top:-8px;left:12px;z-index:2;background:#0a0a0a;padding:0 7px;',

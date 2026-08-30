@@ -738,6 +738,43 @@ export const PALIS_CSS = [
   'html[data-palis-theme] [data-chat-flow-key][data-chat-flow-kind="tool-call"]{',
   'border:1px dashed rgba(236,236,236,.10);border-left:2px solid rgba(111,156,255,.28);',
   '}',
+  /* ── Markdown 内容（从 [data-chat-flow] 稳定锚点向下匹配 HTML 标签，不碰哈希类名）── */
+  /* 代码块：暗底 + 蓝边 + 等宽字 + 左侧蓝条（与 assistant 轨呼应） */
+  'html[data-palis-theme] [data-chat-flow] pre{',
+  'background:#0d0d0d;border:1px solid rgba(111,156,255,.12);border-left:2px solid rgba(43,95,217,.4);',
+  'border-radius:0;font-family:var(--palis-font-mono,monospace);font-size:12px;}',
+  'html[data-palis-theme] [data-chat-flow] pre code{',
+  'font-family:var(--palis-font-mono,monospace);color:#c8c8c8;background:transparent;}',
+  /* 行内代码：蓝底暗字 */
+  'html[data-palis-theme] [data-chat-flow] code:not(pre code){',
+  'background:rgba(43,95,217,.08);color:#7a97e8;padding:1px 5px;',
+  'font-family:var(--palis-font-mono,monospace);font-size:12px;}',
+  /* 引用块：左侧蓝色粗条 + 斜体 */
+  'html[data-palis-theme] [data-chat-flow] blockquote{',
+  'border-left:2px solid rgba(43,95,217,.4);padding-left:12px;margin-left:0;',
+  'color:#a0a0a0;font-style:italic;}',
+  /* 表格：方角 + 表头蓝底 */
+  'html[data-palis-theme] [data-chat-flow] table{',
+  'border-collapse:collapse;border:1px solid #2a2a2a;font-size:12px;}',
+  'html[data-palis-theme] [data-chat-flow] table th{',
+  'background:rgba(43,95,217,.08);border:1px solid #2a2a2a;padding:6px 10px;text-align:left;}',
+  'html[data-palis-theme] [data-chat-flow] table td{',
+  'border:1px solid #222;padding:5px 10px;}',
+  /* 链接：虚线下划线 + hover 实线 */
+  'html[data-palis-theme] [data-chat-flow] a{',
+  'color:#7a97e8;text-decoration:underline dotted rgba(111,156,255,.3);text-underline-offset:3px;}',
+  'html[data-palis-theme] [data-chat-flow] a:hover{',
+  'color:#9fb4e8;text-decoration-style:solid;}',
+  /* HR：虚线 */
+  'html[data-palis-theme] [data-chat-flow] hr{',
+  'border:none;height:1px;background:repeating-linear-gradient(90deg,#333 0 8px,transparent 8px 16px);}',
+  /* 列表：终端 prompt 前缀 */
+  'html[data-palis-theme] [data-chat-flow] ul{list-style-type:none;padding-left:16px;}',
+  'html[data-palis-theme] [data-chat-flow] ul>li::before{',
+  'content:"> ";color:rgba(111,156,255,.4);font-family:var(--palis-font-mono,monospace);margin-left:-14px;padding-right:2px;}',
+  'html[data-palis-theme] [data-chat-flow] ol{padding-left:20px;}',
+  'html[data-palis-theme] [data-chat-flow] ol>li::marker{color:rgba(111,156,255,.4);font-family:var(--palis-font-mono,monospace);}',
+
   /* 输入区：终端窗口化（顶蓝条 + 渐变底 + text-fill 修复——内核用渐变文字，fill 必须覆盖） */
   'html[data-palis-theme] [data-composer-card]{',
   'background:linear-gradient(180deg,rgba(43,95,217,.045),transparent 90px),#0d0d0d;',

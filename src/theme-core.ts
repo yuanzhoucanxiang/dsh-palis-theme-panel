@@ -935,8 +935,15 @@ export const PALIS_CSS = [
   '.palis-frame .br-tag{right:64px;bottom:52px;color:rgba(236,236,236,.22)}',
 
   '.palis-playhead{position:absolute;top:0;left:0;width:3px;height:7px;',
-  'background:rgba(111,156,255,.95);pointer-events:none;z-index:1;will-change:transform}',
+  'background:rgba(111,156,255,.95);z-index:1;pointer-events:none;will-change:transform}',
+  '.palis-playhead::after{content:"\u25bc";position:absolute;top:7px;left:-4px;',
+  'font-size:8px;color:rgba(111,156,255,.7);font-family:var(--palis-font-mono,monospace)}',
 
+  /* 侧栏右缘刻度线：内核 sidebarCol 展开时右缘的等距接触刻度（宽=280 内核默认栏宽） */
+  'html[data-palis-theme] [class*="sidebarCol"]:not([style*="width: 0"])::after{',
+  'content:"";position:absolute;right:0;top:0;bottom:0;width:7px;pointer-events:none;',
+  'background:repeating-linear-gradient(180deg,rgba(236,236,236,.08) 0 1px,transparent 1px 28px);',
+  'z-index:1}',
   /* 会话区「磁带尺」：滚动容器顶边的刻度带 + 起始铭牌（随内容滚走=档案带头） */
   'html[data-palis-theme] [data-conversation-scroll]::before{',
   'content:"";position:absolute;top:0;left:0;right:0;height:7px;pointer-events:none;',

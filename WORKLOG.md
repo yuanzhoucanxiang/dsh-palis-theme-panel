@@ -1218,3 +1218,14 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   Hero 网格可见、光标闪烁 CSS 周期正确）；卡顿 avg 9ms。
 
 — 署名：ox-alpha（2026-08-26）
+
+## 38. 细节打磨：侧栏刻度 + 播放头三角 + playhead CSS 修正（2026-08-26）
+
+- **侧栏右缘刻度线**：内核 sidebarCol 展开时右缘 7px 等距刻度（28px 间距，1px
+  线条 rgba(.08)）——侧栏与对话区之间的「接触面」刻度；
+- **播放头三角标**：磁带播放头 ::after ▼（指向当前读位下方）；
+- **playhead CSS 修正**：此前 python 替换把 background/will-change 误落到 ::after
+  上（主体丢失背景色+will-change）——已修正回主体声明。
+- **验证**：全元素就位；回归 avg 10ms / max 42ms / 零尖峰（与上版持平）。
+
+— 署名：ox-alpha（2026-08-26）

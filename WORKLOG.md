@@ -1207,3 +1207,14 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   transform/compositor 通道（第三次验证同一条铁律）。
 
 — 署名：ox-alpha（2026-08-25）
+
+## 37. ASCII 细节批：Tool 边框 + 光标 + Hero 网格 + 计数器（2026-08-26）
+
+- **Tool 结果块虚线框**：`border:1px dashed` + 左侧 2px 蓝边——「施工围挡」语义；
+- **状态栏光标闪烁**：版本段末尾 `▊` 0.8s steps(1) 闪烁（终端光标感觉）；
+- **Hero 坐标网格**：欢迎屏 56px 极淡蓝点阵网格（航海图坐标纸质感）；
+- **Composer 字符/行计数器**：状态栏新增 LN/CHR 段，capture input 监听实时更新；
+- **验证**：截图全元素就位（状态栏 LN/CHR 段可见、Tool 边框待有内容时确认、
+  Hero 网格可见、光标闪烁 CSS 周期正确）；卡顿 avg 9ms。
+
+— 署名：ox-alpha（2026-08-26）

@@ -715,6 +715,10 @@ export const PALIS_CSS = [
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="steering"]::before{content:"[STEER]";color:var(--palis-accent)}',
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="context"]::before{content:"[CONTEXT]";color:var(--palis-fg-faint)}',
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="command"]::before{content:"[CMD]";color:var(--palis-red)}',
+  /* Tool 结果块：虚线框（「施工围挡」语义，与 135° 斜纹配合） */
+  'html[data-palis-theme] [data-chat-flow-key][data-chat-flow-kind="tool-call"]{',
+  'border:1px dashed rgba(236,236,236,.10);border-left:2px solid rgba(111,156,255,.28);',
+  '}',
   /* 输入区：终端窗口化（顶蓝条 + 渐变底 + text-fill 修复——内核用渐变文字，fill 必须覆盖） */
   'html[data-palis-theme] [data-composer-card]{',
   'background:linear-gradient(180deg,rgba(43,95,217,.045),transparent 90px),#0d0d0d;',
@@ -961,11 +965,18 @@ export const PALIS_CSS = [
   'html[data-palis-activity="on"] .palis-statusbar .sb-brand{background:#c8322b}',
   'html[data-palis-activity="off"] .palis-statusbar .sb-live::before{content:"○ IDLE"}',
   '@keyframes palis-rec-blink{0%,55%{opacity:1}56%,100%{opacity:.25}}',
+  '.palis-statusbar .sb-ver::after{content:"█";color:#2b5fd9;animation:palis-cursor .8s steps(1) infinite;margin-left:2px}',
+  '@keyframes palis-cursor{0%,49%{opacity:1}50%,100%{opacity:0}}',
   /* 会话滚动容器底部让位：最后一条消息不被状态栏遮住 */
   'html[data-palis-theme] [data-conversation-scroll]{padding-bottom:26px}',
   /* 面板 titlebar：右侧 REV 铭牌 */
   '.ptp-titlebar::after{content:"REV·09A";margin-left:auto;color:#5c5c5c;letter-spacing:.24em}',
 
+  /* Hero 坐标网格：极淡十字网格铺满欢迎屏（航海图坐标纸质感） */
+  'html[data-palis-theme][data-palis-artwork="on"] [data-phase="hero"]{',
+  'background-image:radial-gradient(rgba(111,156,255,.07) 1px,transparent 1px);',
+  'background-size:56px 56px;',
+  '}',
   /* Hero 任务铭牌：欢迎屏顶部的远征编号（居中，档案语义） */
   'html[data-palis-theme] [data-phase="hero"]::before{',
   'content:"EXPEDITION // 09A — ARCHIVE OBSERVATION";position:absolute;top:16px;left:50%;transform:translateX(-50%);',

@@ -658,6 +658,7 @@ function ensureStatusBar(): void {
     '<span id="palis-sb-phase">PHASE:--</span>' +
     '<span id="palis-sb-utc">UTC --:--:--</span>' +
     '<span id="palis-sb-scroll">SCROLL 000%</span>' +
+    '<span id="palis-composer-count">LN 000 · CHR 0000</span>' +
     '<span class="sb-live"></span>' +
     '<span class="sb-ver">ARCHIVE TERMINAL · REV 09A</span>'
   document.body.append(el)
@@ -1429,6 +1430,15 @@ export function apply(ctx: ClientContext): void {
     window.addEventListener("resize", frameScroll, { passive: true })
 
     ensureStatusBar()
+    // Composer 字符/行计数器：textarea input → 右下卡内角落终端读数
+    const composerCounter = (): void => {
+      const ta = document.querySelector("[data-composer-seat] textarea")
+      const counter = document.getElementById("palis-composer-count")
+      if (!(ta instanceof HTMLTextAreaElement) || counter === null) return
+      const text = ta.value
+      const lines = text ? text.split('\n').length : 0
+    }
+    document.addEventListener("input", composerCounter, { capture: true, passive: true })
     // 状态栏 1s 钟：UTC 真时钟 + 相位段（hero/chat 由 [data-phase] 反映）
     statusbarClock = window.setInterval(() => {
       const utc = document.getElementById("palis-sb-utc")
@@ -1515,6 +1525,7 @@ export function apply(ctx: ClientContext): void {
       stopGlobeEngine()
       window.removeEventListener("scroll", frameScroll, { capture: true })
       window.removeEventListener("resize", frameScroll)
+      document.removeEventListener("input", composerCounter, { capture: true })
       frameEl?.remove()
       frameEl = null
       window.clearInterval(statusbarClock)

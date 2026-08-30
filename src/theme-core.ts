@@ -715,6 +715,25 @@ export const PALIS_CSS = [
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="steering"]::before{content:"[STEER]";color:var(--palis-accent)}',
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="context"]::before{content:"[CONTEXT]";color:var(--palis-fg-faint)}',
   'html[data-palis-theme][data-palis-labels="on"] [data-chat-flow-key][data-chat-flow-kind="command"]::before{content:"[CMD]";color:var(--palis-red)}',
+  /* ── 流式动效层（参考内核 turn-status-shimmer / reasoning-row-sweep，PALIS 蓝/ASCII 诠释）── */
+  /* [CLERK] 标签流式闪烁：background-clip:text + background-position 扫过文字（仅流式时启用） */
+  'html[data-palis-theme][data-palis-activity="on"] [data-chat-flow-key][data-chat-flow-kind="assistant-step"]::before,',
+  'html[data-palis-theme][data-palis-activity="on"] [data-chat-flow-key][data-chat-flow-kind="agent"]::before,',
+  'html[data-palis-theme][data-palis-activity="on"] [data-chat-flow-key][data-chat-flow-kind="assistant"]::before{',
+  'background:linear-gradient(90deg,rgba(236,236,236,.6) 0%,rgba(236,236,236,.6) 40%,rgba(111,156,255,.9) 50%,rgba(236,236,236,.6) 60%,rgba(236,236,236,.6) 100%);',
+  'color:transparent;-webkit-text-fill-color:transparent;',
+  '-webkit-background-clip:text;background-clip:text;',
+  'background-size:250% 100%;background-position:100% 0;',
+  'animation:palis-shimmer 1.8s linear infinite;}',
+  '@keyframes palis-shimmer{to{background-position:0 0}}',
+  /* [TOOL] 行流式扫描：左侧高亮条横扫（内核 reasoning-row-sweep 同模式） */
+  'html[data-palis-theme][data-palis-activity="on"] [data-chat-flow-key][data-chat-flow-kind="tool-call"]{',
+  'position:relative;overflow:hidden;}',
+  'html[data-palis-theme][data-palis-activity="on"] [data-chat-flow-key][data-chat-flow-kind="tool-call"]::after{',
+  'content:"";position:absolute;top:0;bottom:0;width:120px;',
+  'background:linear-gradient(90deg,transparent,rgba(111,156,255,.08),transparent);',
+  'animation:palis-tool-sweep 2.6s ease-out infinite;pointer-events:none;}',
+  '@keyframes palis-tool-sweep{0%{left:-120px}90%,to{left:100%}}',
   /* Tool 结果块：虚线框（「施工围挡」语义，与 135° 斜纹配合） */
   'html[data-palis-theme] [data-chat-flow-key][data-chat-flow-kind="tool-call"]{',
   'border:1px dashed rgba(236,236,236,.10);border-left:2px solid rgba(111,156,255,.28);',

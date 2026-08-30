@@ -1229,3 +1229,20 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
 - **验证**：全元素就位；回归 avg 10ms / max 42ms / 零尖峰（与上版持平）。
 
 — 署名：ox-alpha（2026-08-26）
+
+## 39. 流式动效层：内核 shimmer/sweep 的 PALIS 诠释（2026-08-26，参考桌面版内核模式）
+
+- **参考来源**：内核 conversation UI 有三种精彩动效模式——
+  ①turn-status-shimmer（background-clip:text + background-position 扫过文字）；
+  ②reasoning-row-sweep（左侧高亮条从 -300px 横扫至 100%）；
+  ③input-pending（脉冲点 0.35→1 交替）。这些都是内核正式 UI 已在用的模式。
+- **PALIS 诠释**：
+  1. **[CLERK] 标签流式闪烁**——activity=on 时，[CLERK] 标签文字从纯色切换为
+     background-clip:text 闪烁模式（PALIS 灰白→蓝 → 灰白渐变扫过文字）；
+  2. **[TOOL] 行扫描**——activity=on 时，tool-call 行出现一个 120px 宽的蓝色
+     高亮条从左侧横扫至右侧（与内核 reasoning-row-sweep 同参数 2.6s ease-out）；
+  3. 两者仅在 `data-palis-activity="on"` 时启用——非流式状态零开销。
+- **验证**：隔离实例全元素就位；卡顿表 avg 9ms / max 26ms / 零掉帧；
+  闪回归零尖峰。
+
+— 署名：ox-alpha（2026-08-26）

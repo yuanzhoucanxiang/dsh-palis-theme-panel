@@ -1,3 +1,17 @@
+## 0.4.0 — 2026-08-26
+
+流式动效层：内核 shimmer/sweep 的 PALIS 诠释。
+
+**新增**
+- [CLERK] 标签流式闪烁（background-clip:text 渐变扫过文字，PALIS 灰白→蓝）；
+- [TOOL] 行流式扫描（120px 高亮条横扫，2.6s ease-out）；
+- 仅流式时启用，非流式零开销。
+
+**参考**
+- 内核 turn-status-shimmer / reasoning-row-sweep 模式，PALIS 蓝/ASCII 诠释。
+
+— 署名：ox-alpha（2026-08-26）
+
 ## 0.3.4 — 2026-08-26
 
 细节打磨。

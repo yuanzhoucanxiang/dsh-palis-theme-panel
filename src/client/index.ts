@@ -656,8 +656,10 @@ function ensureStatusBar(): void {
   el.innerHTML =
     '<b class="sb-brand">▲ PALIS 09A</b>' +
     '<span id="palis-sb-phase">PHASE:--</span>' +
+    '<span id="palis-sb-sess"></span>' +
     '<span id="palis-sb-utc">UTC --:--:--</span>' +
     '<span id="palis-sb-scroll">SCROLL 000%</span>' +
+    '<span id="palis-sb-model"></span>' +
     '<span id="palis-composer-count">LN 000 · CHR 0000</span>' +
     '<span class="sb-live"></span>' +
     '<span class="sb-ver">ARCHIVE TERMINAL · REV 09A</span>'
@@ -1451,6 +1453,25 @@ export function apply(ctx: ClientContext): void {
       if (phase !== null) {
         const p = document.querySelector("[data-phase]")?.getAttribute("data-phase") || "--"
         phase.textContent = "PHASE:" + p.toUpperCase()
+      }
+      // 会话名（仅 chat 态显示；hero 隐藏）
+      const sess = document.getElementById("palis-sb-sess")
+      if (sess !== null) {
+        const isHero = document.querySelector('[data-phase="hero"]') !== null
+        if (isHero) { sess.textContent = ""; sess.style.display = "none" }
+        else {
+          const hdr = document.querySelector('[data-slot="conversation.session.header"] header') as HTMLElement | null
+          const name = hdr?.innerText?.split('\n')[0]?.trim() || ''
+          sess.textContent = name ? 'SES:' + name.slice(0, 20) : ''
+          sess.style.display = name ? '' : 'none'
+        }
+      }
+      // 模型名（从 composer 的模型选择器读取）
+      const model = document.getElementById("palis-sb-model")
+      if (model !== null) {
+        const mb = Array.from(document.querySelectorAll('button')).find(b => /Ox Alpha|DeepSeek|Claude|GPT|Gemini/i.test(b.textContent || '') && b.getBoundingClientRect().width > 0 && b.getBoundingClientRect().width < 200 && b.getBoundingClientRect().top > window.innerHeight * 0.5)
+        model.textContent = mb ? 'MDL:' + (mb.textContent || '').trim().slice(0, 18) : ''
+        model.style.display = mb ? '' : 'none'
       }
     }, 1000)
 

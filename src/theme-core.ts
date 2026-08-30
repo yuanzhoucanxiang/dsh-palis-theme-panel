@@ -1022,6 +1022,8 @@ export const PALIS_CSS = [
   '.palis-statusbar b{flex:none;background:#2b5fd9;color:#fff;padding:0 10px;letter-spacing:.24em;font-weight:600}',
   '.palis-statusbar span{flex:none;padding:0 12px;border-right:1px solid #222;white-space:nowrap}',
   '.palis-statusbar .sb-live{border-right:none;margin-left:auto;color:#8f8f8f}',
+  '.palis-statusbar #palis-sb-sess{color:#7a97e8;max-width:180px;overflow:hidden;text-overflow:ellipsis}',
+  '.palis-statusbar #palis-sb-model{color:#9c9c9c;max-width:140px;overflow:hidden;text-overflow:ellipsis}',
   '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid #222;color:#5c5c5c}',
   '.palis-statusbar .sb-live::before{content:"○ IDLE"}',
   'html[data-palis-activity="on"] .palis-statusbar .sb-live::before{content:"● LIVE";color:#c8322b;animation:palis-rec-blink 1.6s steps(1) infinite}',

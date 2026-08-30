@@ -940,6 +940,24 @@ export const PALIS_CSS = [
   'font-size:8px;letter-spacing:.24em;color:rgba(236,236,236,.26);font-family:var(--palis-font-mono,monospace);',
   '}',
 
+  /* ── tmux 式底部状态栏（client 注入 .palis-statusbar）：品牌段/相位段/UTC/滚动深度/活动/版本 ── */
+  '.palis-statusbar{position:fixed;left:0;right:0;bottom:0;height:22px;z-index:2147482350;',
+  'display:flex;align-items:center;gap:0;background:rgba(10,10,10,.94);border-top:1px solid #2a2a2a;',
+  'font-family:var(--palis-font-mono,monospace);font-size:9px;letter-spacing:.2em;color:#767676;overflow:hidden}',
+  '.palis-statusbar b{flex:none;background:#2b5fd9;color:#fff;padding:0 10px;letter-spacing:.24em;font-weight:600}',
+  '.palis-statusbar span{flex:none;padding:0 12px;border-right:1px solid #222;white-space:nowrap}',
+  '.palis-statusbar .sb-live{border-right:none;margin-left:auto;color:#8f8f8f}',
+  '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid #222;color:#5c5c5c}',
+  '.palis-statusbar .sb-live::before{content:"○ IDLE"}',
+  'html[data-palis-activity="on"] .palis-statusbar .sb-live::before{content:"● LIVE";color:#c8322b;animation:palis-rec-blink 1.6s steps(1) infinite}',
+  'html[data-palis-activity="on"] .palis-statusbar .sb-brand{background:#c8322b}',
+  'html[data-palis-activity="off"] .palis-statusbar .sb-live::before{content:"○ IDLE"}',
+  '@keyframes palis-rec-blink{0%,55%{opacity:1}56%,100%{opacity:.25}}',
+  /* 会话滚动容器底部让位：最后一条消息不被状态栏遮住 */
+  'html[data-palis-theme] [data-conversation-scroll]{padding-bottom:26px}',
+  /* 面板 titlebar：右侧 REV 铭牌 */
+  '.ptp-titlebar::after{content:"REV·09A";margin-left:auto;color:#5c5c5c;letter-spacing:.24em}',
+
   /* Composer 输入卡：左上铭牌压 accent 顶边（终端窗口标签耳）+ 四角 L 括号 */
   'html[data-palis-theme] [data-composer-card]{position:relative}',
   'html[data-palis-theme] [data-composer-card]::before{',

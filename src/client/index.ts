@@ -153,6 +153,7 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
   ensureSonar()
   ensureCrtSweep()
   ensureFrame()
+  ensureStatusBar()
   notify()
 }
 
@@ -636,11 +637,31 @@ function ensureFrame(): void {
   el.innerHTML =
     '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>' +
     '<span class="tl-tag">SYS//09A-C2</span>' +
-    '<span class="tr-tag">ARCHIVE TERMINAL</span>' +
-    '<span class="bl-read">SCROLL 000%</span>' +
-    '<span class="br-tag">REC</span>'
+    '<span class="tr-tag">ARCHIVE TERMINAL</span>'
   document.body.prepend(el)
   frameEl = el
+}
+
+function ensureStatusBar(): void {
+  if (!current.enabled) {
+    statusbarEl?.remove()
+    statusbarEl = null
+    return
+  }
+  if (statusbarEl !== null && statusbarEl.isConnected) return
+  statusbarEl?.remove()
+  const el = document.createElement('div')
+  el.className = 'palis-statusbar'
+  el.setAttribute('aria-hidden', 'true')
+  el.innerHTML =
+    '<b class="sb-brand">▲ PALIS 09A</b>' +
+    '<span id="palis-sb-phase">PHASE:--</span>' +
+    '<span id="palis-sb-utc">UTC --:--:--</span>' +
+    '<span id="palis-sb-scroll">SCROLL 000%</span>' +
+    '<span class="sb-live"></span>' +
+    '<span class="sb-ver">ARCHIVE TERMINAL · REV 09A</span>'
+  document.body.append(el)
+  statusbarEl = el
 }
 
 function ensureCrtSweep(): void {
@@ -912,6 +933,8 @@ let sonarEl: HTMLDivElement | null = null
 let crtSweepEl: HTMLDivElement | null = null // 扫描频带独立层（transform 动画，免全屏 background-position 逐帧重绘）
 let frameEl: HTMLDivElement | null = null // ASCII 取景框层（四角标记/铭牌/滚动读数）
 let frameReadRaf = 0 // 读数 rAF 句柄
+let statusbarEl: HTMLDivElement | null = null // tmux 式底部状态栏
+let statusbarClock = 0 // UTC/相位钟句柄
 
 /** 取景框滚动深度读数：rAF 节流，惰性定位会话滚动容器（window capture 捕获内层滚动）。 */
 function scheduleFrameReadout(): void {
@@ -919,7 +942,7 @@ function scheduleFrameReadout(): void {
   if (frame === null || frameReadRaf !== 0) return
   frameReadRaf = requestAnimationFrame(() => {
     frameReadRaf = 0
-    const read = frame.querySelector(".bl-read")
+    const read = document.getElementById("palis-sb-scroll")
     const scroller = document.querySelector("[data-conversation-scroll]")
     if (read === null || !(scroller instanceof HTMLElement)) return
     const max = scroller.scrollHeight - scroller.clientHeight
@@ -1381,6 +1404,22 @@ export function apply(ctx: ClientContext): void {
     window.addEventListener("scroll", frameScroll, { capture: true, passive: true })
     window.addEventListener("resize", frameScroll, { passive: true })
 
+    ensureStatusBar()
+    // 状态栏 1s 钟：UTC 真时钟 + 相位段（hero/chat 由 [data-phase] 反映）
+    statusbarClock = window.setInterval(() => {
+      const utc = document.getElementById("palis-sb-utc")
+      if (utc !== null) {
+        const d = new Date()
+        const pad = (n: number): string => String(n).padStart(2, "0")
+        utc.textContent = "UTC " + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds())
+      }
+      const phase = document.getElementById("palis-sb-phase")
+      if (phase !== null) {
+        const p = document.querySelector("[data-phase]")?.getAttribute("data-phase") || "--"
+        phase.textContent = "PHASE:" + p.toUpperCase()
+      }
+    }, 1000)
+
     // 声线波动条：同一 observer 兼顾活动信号（data-streaming 置位/卸载）、
     // 输出突发计数（characterData ≈ token 落地）与 composer 重建重挂。
     waveResize = new ResizeObserver((entries) => {
@@ -1454,6 +1493,9 @@ export function apply(ctx: ClientContext): void {
       window.removeEventListener("resize", frameScroll)
       frameEl?.remove()
       frameEl = null
+      window.clearInterval(statusbarClock)
+      statusbarEl?.remove()
+      statusbarEl = null
       dropStarfield()
       waveObserver?.disconnect()
       waveObserver = null

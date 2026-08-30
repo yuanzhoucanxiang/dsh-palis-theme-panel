@@ -1175,3 +1175,20 @@ bootLabel 单行 nowrap、左导航 插件×1 + 模组注入×1；截图 verify-
   可变量在 rAF 回调里失去 null 收窄——回调开头先存局部常量。
 
 — 署名：ox-alpha（2026-08-25）
+
+## 35. tmux 式底部状态栏（2026-08-25，用户「继续迭代」）
+
+- **新增**：`.palis-statusbar` 底部 22px 状态栏（client 注入 ensure* 家族 +
+  1s 钟）：`▲ PALIS 09A` 蓝色品牌段 / `PHASE:HERO|CHAT`（读 [data-phase]）/
+  `UTC 真时钟` / `SCROLL 深度仪表条`（原取景框 bl-read 迁入）/ `●LIVE ○IDLE`
+  （data-palis-activity 驱动，流式时红字闪烁+品牌段变红）/ `ARCHIVE TERMINAL ·
+  REV 09A` 版本段。
+- **配套**：会话滚动容器 padding-bottom 26px（末条消息不被栏遮挡）；面板
+  titlebar 加 REV·09A 铭牌。
+- **验证**：截图全段就位（UTC 走秒、IDLE 默认显示）；卡顿表 avg 9ms（单帧
+  36ms 一次性毛刺）；闪回归零尖峰。
+- **坑**：①TS 源里的字面 `\u2555` 转义序列在 python 补丁里必须用 raw 串匹配
+  （真实 unicode 字符匹配不上——两次失败后用 Write+raw 才对齐）；②CTP 截图连
+  错页面（urlPart 为空匹配到第一个 target）——多页面实例必须带端口片段。
+
+— 署名：ox-alpha（2026-08-25）

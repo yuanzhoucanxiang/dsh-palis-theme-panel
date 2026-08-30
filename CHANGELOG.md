@@ -1,3 +1,13 @@
+## 0.3.1 — 2026-08-25
+
+tmux 式底部状态栏。
+
+**新增**
+- 底部 22px 状态栏：▲PALIS 09A 品牌段 / PHASE 相位段 / UTC 真时钟 / SCROLL 深度仪表条 / ●LIVE ○IDLE 活动指示（流式时红字闪烁+品牌段变红）/ ARCHIVE TERMINAL · REV 09A 版本段；
+- 会话滚动容器底部让位 26px；面板 titlebar 加 REV·09A 铭牌。
+
+— 署名：ox-alpha（2026-08-25）
+
 ## 0.3.0 — 2026-08-25
 
 ASCII 取景框系统 + 细节打磨批。

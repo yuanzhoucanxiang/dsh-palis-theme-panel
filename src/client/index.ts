@@ -1043,7 +1043,9 @@ function orbitFrame(t: number): void {
   orbitLast = t
   const heatTarget = waveActive ? 1 : 0
   orbitHeat += (heatTarget - orbitHeat) * (heatTarget > orbitHeat ? 0.05 : 0.015) // 快起慢落
-  const boost = 1 + 3 * orbitHeat
+  /* 活动态只给 2.2×（原 4×）：月球的活动提亮保留，声纳只许"略活跃"——
+     双动效同开时不再"疯狂转动"与月球抢戏（2026-08-31 用户反馈：凌乱） */
+  const boost = 1 + 1.2 * orbitHeat
   const tt = t / 1000
   for (const r of sonarRings) {
     const w = r.speed * (Math.sin(tt * r.f1 + r.p1) + 0.6 * Math.sin(tt * r.f2 + r.p2) + 0.3)

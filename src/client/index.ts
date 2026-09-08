@@ -1193,9 +1193,47 @@ let sonarDegs: SonarDeg[] = []
 let sonarScale = 0
 let sonarLastPingD = 0 // ping 环当前直径（阈值门用）
 let sonarFreezeUntil = 0 // 侧栏过渡期 ping 重尺寸冻结（§25 定案防护；v0.5.2 起只冻 ping，几何/旋转逐帧跟随）
+let pingPendingD = 0 // 待落盘的 ping 直径（等不可见窗口，v0.5.3）
+let pingResizeTimer = 0
 let orbitRaf = 0
 let orbitLast = 0
 let orbitHeat = 0
+
+/** ping 重尺寸排队到各环自己的不可见窗口落笔（v0.5.3）：
+ *  §25 定案：6.4s 无限动画元素被改 width/margin 会把插值顶爆成单帧亮闪；
+ *  冻结窗+阈值门只压次数，落笔时机仍是随机相位（三环错相 0/2.13/4.27s，
+ *  任意时刻大概率有一环可见 → 落定后 ~1s 那次重尺寸用户可见 = 残留闪烁）。
+ *  改为：每环等到自己的 opacity≈0（6.4s 循环的 100%→0% 段）才改尺寸——
+ *  环完全透明时改尺寸不可见。最坏等待 ≈ 一个循环，期间环径保持前值（无感）。 */
+function queuePingResize(d: number): void {
+  pingPendingD = d
+  if (pingResizeTimer !== 0 || sonarEl === null) return
+  pingResizeTimer = window.setInterval(applyPingResizeWhenInvisible, 150)
+}
+
+function applyPingResizeWhenInvisible(): void {
+  const el = sonarEl
+  if (el === null || pingPendingD === 0) { stopPingResizeTimer(); return }
+  const want = pingPendingD.toFixed(1)
+  const margin = (-pingPendingD / 2).toFixed(1) + 'px 0 0 ' + (-pingPendingD / 2).toFixed(1) + 'px'
+  let pending = 0
+  el.querySelectorAll<HTMLElement>('i').forEach((ping) => {
+    if (ping.dataset.pd === want) return
+    if (parseFloat(getComputedStyle(ping).opacity) <= 0.02) {
+      ping.style.width = want + 'px'
+      ping.style.height = want + 'px'
+      ping.style.margin = margin
+      ping.dataset.pd = want
+    } else {
+      pending++
+    }
+  })
+  if (pending === 0) { pingPendingD = 0; stopPingResizeTimer() }
+}
+
+function stopPingResizeTimer(): void {
+  if (pingResizeTimer !== 0) { window.clearInterval(pingResizeTimer); pingResizeTimer = 0 }
+}
 
 function removeSonar(): void {
   sonarResize?.disconnect()
@@ -1208,6 +1246,9 @@ function removeSonar(): void {
   sonarRings = []
   sonarPlanets = []
   sonarDegs = []
+  sonarLastPingD = 0 // 重挂载的是全新 <i>（CSS 默认 760px）——阈值门基数必须清零，否则新环永不定径
+  pingPendingD = 0
+  stopPingResizeTimer()
   sonarEl?.remove()
   sonarEl = null
 }
@@ -1240,18 +1281,17 @@ function layoutSonar(host: HTMLElement): void {
   }
   layoutGlobe(host) // 星系中心天体（月球）同圆心同基准跟随（v0.5.0；v0.5.2 起逐帧跟随不进冻结窗）
   // ping 环定径：保底 760px，超宽屏按 1.1·S 越过最外轨道环（r=430 → 0.86·S）。
-  // 仅增量 >40px 才重尺寸（构建期已定一次）：ping 环是 6.4s 无限动画元素，逐帧改
-  // width/margin 会把动画插值顶爆成单帧亮闪（WORKLOG 25/27 最终定案）。
-  // 冻结窗只冻这一段（v0.5.2）：过渡期 ping 几何保持前值，落定后一次性重尺寸。
+  // 仅增量 >40px 才重尺寸：ping 环是 6.4s 无限动画元素，可见相位改 width/margin
+  // 会把动画插值顶爆成单帧亮闪（WORKLOG 25/27 最终定案）。
+  // 冻结窗只冻这一段（v0.5.2）：过渡期 ping 几何保持前值。
+  // 落笔排队到各环 opacity≈0 的不可见窗口（v0.5.3）：阈值门压次数、冻结窗压时机，
+  // 但落定后那次重尺寸仍是随机相位——三环错相下大概率有一环可见（用户仍见闪）；
+  // 等不可见窗口落笔后，重尺寸对画面零影响。
   if (performance.now() < sonarFreezeUntil) return
   const pingD = Math.max(760, 1.1 * s)
   if (Math.abs(sonarLastPingD - pingD) <= 40) return
   sonarLastPingD = pingD
-  sonarEl.querySelectorAll<HTMLElement>('i').forEach((ping) => {
-    ping.style.width = pingD.toFixed(1) + 'px'
-    ping.style.height = pingD.toFixed(1) + 'px'
-    ping.style.margin = (-pingD / 2).toFixed(1) + 'px 0 0 ' + (-pingD / 2).toFixed(1) + 'px'
-  })
+  queuePingResize(pingD)
 }
 
 /** 旋转/公转驱动：独立 rAF（波动条引擎静默即休眠，行星是背景生命力，须持续慢转）。 */

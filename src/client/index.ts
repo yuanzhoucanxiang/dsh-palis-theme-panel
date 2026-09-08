@@ -8,7 +8,10 @@
  *  3. 右下角浮动快捷开关（一键接入/断开）；
  *  4. 开机自检动画（开启 + boot 开启时，每次页面加载一次）；
  *  5. 声线波动条：composer 顶边蓝线随 [data-streaming] 起伏（canvas 叠加层）；
- *  6. 声纳扩散：轨道图中心徽记的深空 ping，与波动条共用同一活动门。
+ *  6. 声纳扩散：轨道图中心徽记的深空 ping，与波动条共用同一活动门；
+ *  7. 美术构成扩充层（.palis-glyphs）：平面月盘 / 月面铭牌标题 / 等高线地形碎片 / 测量十字 /
+ *     右缘 hex 数据流 / 错位图版 / 单色色卡阶梯 / 栏栅格碎片——补「点+圆+横线」之外的构成类；
+ *  8. 星尘星座连线：近邻星点间的极淡连线，点阵升级为缓慢重构的网络构成。
  *
  * 通信：同源 fetch → host /palis-theme/api（revision 守卫；409 冲突回读服务器）。
  * 注意：面板 = React 组件（本内核 slots 契约）；主题应用 = 命令式副作用（与 React 解耦）。
@@ -58,7 +61,7 @@ let floatBtn: HTMLButtonElement | null = null
 let globeEl: HTMLDivElement | null = null
 let globeObserver: MutationObserver | null = null
 let globeLastEnsure = 0
-/* 满月揭示运行态：左右侧栏全收 → html[data-palis-moon="full"]（见 syncMoonReveal） */
+/* 侧栏收放监听运行态：收放瞬间冻结声纳 + 球自转加速（见 syncMoonReveal） */
 let moonRevealObserver: MutationObserver | null = null
 /* 声线波动条运行态（引擎见下文「声线波动条」节） */
 interface WaveLane {
@@ -167,10 +170,9 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
  * （PT_BANDS 亮度带 → 离散 keep 概率，档间陡跳切出锐利边界）：月海整片彻底
  * 留空（空洞 = 粒子的绝对缺席），空洞岸线亮边一档全收——月海/环形山/射纹
  * 由密度的「无/有」涨落成形，空洞边缘自然显出一圈致密亮边。
- * 渲染 640px 内部分辨率，CSS 响应式放大（1100-1500px）。
- * 卫星层（与球呼应）：一颗 accent 卫星沿贴 r1 HUD 环的倾斜轨道公转——方向与球面
- * 漂移一致（前半球右→左），轨道面缓慢进动；绕到球盘后（后半程且落在球盘半径内）
- * 被遮蔽淡出。球自转、卫星公转、进动共用活动门 boost（×(1+2·heat)，快起慢落）。
+ * 渲染 640px 内部分辨率，transform 整体缩放。
+ * v0.5.0：月球迁入声纳轨道系中心（星系圆心，layoutGlobe 定位缩放）——自带的
+ * HUD 几何层/卫星轨道/live 读数随之退役（仪器语言由声纳环系接管）。
  */
 const GLOBE_RENDER = 640
 const GLOBE_PERIOD_S = 100
@@ -191,12 +193,9 @@ const PT_BANDS: readonly (readonly [number, number])[] = [
   [256, 1], // 岸线亮边 + 高地亮坡全收（环形山亮环/射纹/喷发毯）——月海描边由此显形
 ]
 const PT_RIM_MIN = 152 // 亮边带下限：全收档粒子的钛蓝强调判定边界
-const PT_MAX = 24000 // 点云上限（超出按步长抽稀，各密度档等比收缩）
-const SAT_PERIOD_S = 20 // 卫星公转周期（静默）：球自转的 1/5
-const SAT_PRECESS_S = 240 // 轨道面进动周期
-const SAT_ORBIT_A = 514 // 轨道半长轴 = r1 HUD 环半径（1100px 层 inset:36）
-const SAT_TILT = 0.45 // 轨道倾角：半短轴 = A·tilt
-const GLOBE_DISC_R = 450 // 球盘半径（inset:100 → 直径 900），遮挡判定用
+const PT_RIM_SUB = 3 // 亮边带格点子点数：坑环/岸线/射纹每格 3 颗哈希微抖粒子（月坑加密，
+// 格点一格一颗是密度上限——亮带破格 = 坑环从格点环变致密环带；其余格 1 颗）
+const PT_MAX = 32000 // 点云上限（超出按步长抽稀，各密度档等比收缩）
 
 let globeStop: (() => void) | null = null
 
@@ -235,45 +234,42 @@ function buildGlobe(): HTMLDivElement {
     return el
   }
   sphere.append(canvas, dither, mkDust('d1', 16, false), mkDust('d2', 12, false), mkDust('d3', 5, true))
-  const geo = document.createElement('div')
-  geo.className = 'palis-globe-geo'
-  for (const cls of ['palis-globe-r1', 'palis-globe-r2', 'palis-globe-hline', 'palis-globe-vline', 'palis-globe-cross']) {
-    const el = document.createElement('i')
-    el.className = cls
-    geo.appendChild(el)
-  }
-  // 卫星层：倾斜轨道环 + 卫星点（减免动态时不挂，球体自转不受影响）。
-  // 轨道环插在球体之下——掠过球盘的弧段被球遮蔽（卫星在 geo 层上，前半程完整可见）。
-  let orbit: HTMLElement | null = null
-  let sat: HTMLElement | null = null
-  if (!waveReducedMotion()) {
-    orbit = document.createElement('i')
-    orbit.className = 'palis-globe-orbit'
-    sat = document.createElement('u')
-    sat.className = 'palis-globe-sat'
-    geo.appendChild(sat)
-  }
-  // 代码读数（live：LON = 球面中央经线随自转走，SIGNAL 随活动门降，TRACK = 9 行星 + 1 卫星）
-  const ro1 = document.createElement('pre')
-  const ro2 = document.createElement('pre')
-  ro1.className = 'palis-globe-ro palis-globe-ro1'
-  ro2.className = 'palis-globe-ro palis-globe-ro2'
-  geo.append(ro1, ro2)
-  if (orbit !== null) root.append(orbit, sphere, geo)
-  else root.append(sphere, geo)
+  // v0.5.0：HUD 几何层/卫星轨道/live 读数/铭牌全部退役——月球迁入声纳轨道系中心
+  // （星系圆心定位见 layoutGlobe），仪器语言由声纳环系接管，铭牌迁平面月盘。
+  root.append(sphere)
   stopGlobeEngine()
-  // reduced-motion：卫星层不挂载（上方已跳过），球体贴图只渲染一帧静帧（不启动自转循环）
-  startGlobeEngine(canvas, { sat, orbit, ro1, ro2 }, { still: waveReducedMotion() })
+  // reduced-motion：球体贴图只渲染一帧静帧（不启动自转循环）
+  startGlobeEngine(canvas, { still: waveReducedMotion() })
   return root
 }
 
-interface GlobeFx { sat: HTMLElement | null; orbit: HTMLElement | null; ro1: HTMLElement; ro2: HTMLElement }
+/* 星系中心定位（v0.5.0）：月球 = 声纳轨道系的中心天体（替换原中心圆点）。
+ * 与 layoutSonar 同一圆心公式与 S 基准（orbit 背景 70% 宽 / 58% 高反解）；布局由
+ * layoutSonar 末尾统一驱动（v0.5.2 起逐帧跟随、不进冻结窗——纯 transform 写入
+ * 无重尺寸风险；整体冻结曾在落定帧产生 ~112px 瞬变回跳，WORKLOG §53），
+ * reduced-motion（声纳不挂）时由 ensureGlobe
+ * 自己的 ResizeObserver 驱动。缩放走 transform（origin 0 0：scale(k) translate(-50%,-50%)
+ * 使元素中心精确压圆心）——内部 1100px 固定几何（球盘 900 / 尘埃坐标）整体等比缩放，
+ * 侧栏收放逐帧跟随零重排、零位图重置。盘径 = clamp(0.30·S, 220, 520)：
+ * 恰嵌进蓝环（r=184）以内——行星居于轨道系中心。 */
+function layoutGlobe(host: HTMLElement): void {
+  if (globeEl === null) return
+  const scroller = host.querySelector('[data-conversation-scroll]')
+  if (!(scroller instanceof HTMLElement)) return
+  const hr = host.getBoundingClientRect()
+  const sr = scroller.getBoundingClientRect()
+  const s = sr.width * 0.7
+  const cx = sr.left - hr.left + sr.width * 0.5
+  const cy = sr.top - hr.top + (sr.height - s) * 0.58 + s * 0.5
+  const k = Math.min(520, Math.max(220, s * 0.3)) / 900
+  globeEl.style.left = cx.toFixed(1) + 'px'
+  globeEl.style.top = cy.toFixed(1) + 'px'
+  globeEl.style.transform = 'scale(' + k.toFixed(4) + ') translate(-50%,-50%)'
+}
 
 /** 启动正交投影自转引擎；贴图加载完成后开始逐帧渲染（帧率上限 ~20fps）。
- *  同一 rAF 顺带驱动卫星层（公转 + 轨道面进动 + 球盘遮挡）与 live 代码读数，
- *  并与球自转共用活动门 boost。
- *  still=true（reduced-motion）：贴图只渲染一帧静帧 + 写一次读数，不启动任何循环。 */
-function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still?: boolean }): void {
+ *  still=true（reduced-motion）：贴图只渲染一帧静帧，不启动任何循环。 */
+function startGlobeEngine(canvas: HTMLCanvasElement, opts?: { still?: boolean }): void {
   const SIZE = GLOBE_RENDER
   canvas.width = SIZE
   canvas.height = SIZE
@@ -337,16 +333,28 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
         // 过曝；亮边带（≥PT_RIM_MIN）再提 1.3×——月海已黑得彻底，亮边更亮才压得住对比
         const bRaw = ((s - 128) * GLOBE_CONTRAST + 128) * GLOBE_EXPOSURE
         const b = Math.min(120, Math.max(6, s >= PT_RIM_MIN ? bRaw * 1.3 : bRaw))
-        cloud.push({
-          lon: (lo * Math.PI) / 180,
-          sinLat,
-          cosLat,
-          b,
-          // 矿质着色（月海已抽空，蓝调上移到亮边带）：全收档（岸线/亮坡/坑环）
-          // ~1/3 钛蓝着色——亮边带冷调显形，呼应矿质蓝罩；中亮带保留 ~3.4% 随机
-          // 蓝火花（哈希另一比特段，与密度门不相关）
-          blue: s >= PT_RIM_MIN ? ((h >>> 20) % 3) === 0 : ((h >>> 10) % 29) === 0,
-        })
+        // 矿质着色（月海已抽空，蓝调上移到亮边带）：全收档（岸线/亮坡/坑环）
+        // ~1/3 钛蓝着色——亮边带冷调显形，呼应矿质蓝罩；中亮带保留 ~3.4% 随机
+        // 蓝火花（哈希另一比特段，与密度门不相关）
+        const blue = s >= PT_RIM_MIN ? ((h >>> 20) % 3) === 0 : ((h >>> 10) % 29) === 0
+        // 坑环/岸线亮带加密（PT_RIM_SUB）：全收档格点按哈希链确定性微抖追加——
+        // 月坑环从「格点环」变「致密环带」，坑感由粒子密度直接成形。
+        // k=0 不抖动 = 原格点；抖动幅度取半格步长（±0.35°）：恰铺满相邻格点间隙，
+        // 子点与邻格子点连成连续带——幅度再小会露出「三连珠」虫状纹理，再大则糊出带外
+        const sub = s >= PT_RIM_MIN ? PT_RIM_SUB : 1
+        for (let k = 0; k < sub; k++) {
+          const hj = (h * (2654435761 + k * 2)) | 0
+          const jLo = k === 0 ? 0 : ((((hj >>> 8) % 512) / 512) - 0.5) * PT_LON_DEG
+          const jLa = k === 0 ? 0 : ((((hj >>> 18) % 512) / 512) - 0.5) * PT_LAT_DEG
+          const latRadJ = ((la + jLa) * Math.PI) / 180
+          cloud.push({
+            lon: ((lo + jLo) * Math.PI) / 180,
+            sinLat: Math.sin(latRadJ),
+            cosLat: Math.cos(latRadJ),
+            b,
+            blue,
+          })
+        }
       }
     }
     if (cloud.length > PT_MAX) {
@@ -357,16 +365,10 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
     }
     ;(window as unknown as Record<string, unknown>).__palisPoints = cloud.length // 探针断言用
 
-    const { sat, orbit, ro1, ro2 } = fx
     let angle = 0
     let lastT = performance.now()
     let lastFrame = 0
-    let lastRo = 0
     let globeHeat = 0
-    let satTheta = 0.9
-    let satPsi = 0
-    let satOp = 0
-    let signal = 24
 
     // 渲染：正交投影 + 深度衰减 alpha；按 alpha 分桶批量 fill——万级粒子每帧只有
     // 2 色 × 13 档次状态切换。'lighter' 加法混合让粒子叠出微光（高级感的关键一手）。
@@ -431,57 +433,16 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
       ctx.fillRect(0, 0, SIZE, SIZE)
     }
 
-    // live 读数（500ms 节流覆写）：UTC 真时钟每拍跳动、LON 由自转角反解（真数据）、
-    // SIGNAL 随活动门降速随机游走；still 模式下只写一次（静态读数）
-    const pad2 = (n: number): string => String(n).padStart(2, '0')
-    const writeRo = (): void => {
-      const lonDeg = ((((0.5 - angle / (2 * Math.PI)) % 1) + 1) % 1) * 360 - 180
-      const lonTxt = Math.abs(lonDeg).toFixed(2).padStart(6, '0') + (lonDeg >= 0 ? 'E' : 'W')
-      const sigTarget = globeHeat > 0.5 ? 9 : 24
-      signal = Math.min(38, Math.max(6, signal + (sigTarget - signal) * 0.3 + (Math.random() * 6 - 3)))
-      const hex = ((Math.random() * 0xffff) | 0).toString(16).toUpperCase().padStart(4, '0')
-      const d = new Date()
-      const utc = pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds())
-      ro1.textContent = 'LAT 054.23N  LON ' + lonTxt + '\nSECTOR 09A-C2  GRID 7X14\nUTC ' + utc
-      ro2.textContent = 'TRACK 10 OBJECTS  SIGNAL ' + Math.round(signal) + 'ms\nINDEX 0x8C41 0x77E2 0x' + hex
-    }
-
     const loop = (t: number): void => {
       if (disposed) return
       const dt = Math.min(0.1, (t - lastT) / 1000)
       lastT = t
-      // 活动门：与声纳/行星同一节奏（快起慢落），球自转、卫星、进动一起加速
+      // 活动门：与声纳/行星同一节奏（快起慢落），球自转随活动加速
       const heatTarget = waveActive ? 1 : 0
       globeHeat += (heatTarget - globeHeat) * (heatTarget > globeHeat ? 0.05 : 0.015)
       const boost = 1 + 2 * globeHeat + 3 * moonSlideBoost
       moonSlideBoost *= 0.97 // 衰减：约 1.2s 回落正常转速
       angle += (dt * 2 * Math.PI * boost) / GLOBE_PERIOD_S
-      if (sat !== null && orbit !== null) {
-        satTheta += (dt * 2 * Math.PI * boost) / SAT_PERIOD_S
-        satPsi += (dt * 2 * Math.PI * boost) / SAT_PRECESS_S
-        // 轨道面局部坐标 (a·cosθ, a·k·sinθ) → 随进动角 ψ 在屏幕平面旋转
-        const sx = Math.cos(satTheta)
-        const sy = Math.sin(satTheta)
-        const lx = SAT_ORBIT_A * sx
-        const ly = SAT_ORBIT_A * SAT_TILT * sy
-        const cp = Math.cos(satPsi)
-        const sp = Math.sin(satPsi)
-        const dx = lx * cp - ly * sp
-        const dy = lx * sp + ly * cp
-        // 后半程（sy<0）在球后方：落进球盘半径则被遮蔽淡出，盘外仅压暗
-        const behind = sy < 0
-        const occluded = behind && Math.hypot(dx, dy) < GLOBE_DISC_R
-        const opTarget = occluded ? 0 : behind ? 0.35 : 1
-        satOp += (opTarget - satOp) * Math.min(1, dt * 9)
-        const sc = 1 + 0.22 * sy // 近大远小
-        sat.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + sc.toFixed(3) + ')'
-        sat.style.opacity = satOp.toFixed(3)
-        orbit.style.transform = 'rotate(' + satPsi.toFixed(4) + 'rad) scaleY(' + SAT_TILT + ')'
-      }
-      if (t - lastRo >= 500) {
-        lastRo = t
-        writeRo()
-      }
       if (t - lastFrame >= 50) {
         lastFrame = t
         render()
@@ -490,8 +451,7 @@ function startGlobeEngine(canvas: HTMLCanvasElement, fx: GlobeFx, opts?: { still
     }
     render()
     if (opts?.still === true) {
-      writeRo()
-      return // reduced-motion：静帧点云——粒子已画，读数已写，不进循环
+      return // reduced-motion：静帧点云——粒子已画，不进循环
     }
     raf = requestAnimationFrame(loop)
   }
@@ -510,6 +470,10 @@ let starLast = 0
 let starFrameSkip = false // 隔帧重绘门（见 starFrame）
 let starDots: StarDot[] = []
 let starResizeObs: ResizeObserver | null = null
+let starResizeTimer: number | undefined
+/* 持久连线配对（§44）：key = (i<<16)|j（i<j，星数 ≤240 不会溢出）。
+ * 跨帧保持既有配对，建立/断开走滞后带，避免逐帧贪心重选的整网生灭频闪。 */
+const starLinks = new Set<number>()
 
 function dropStarfield(): void {
   if (starRaf !== 0) {
@@ -519,28 +483,44 @@ function dropStarfield(): void {
   starLast = 0
   starResizeObs?.disconnect()
   starResizeObs = null
+  if (starResizeTimer !== undefined) {
+    clearTimeout(starResizeTimer)
+    starResizeTimer = undefined
+  }
+  starLinks.clear()
   starDots = []
   starCanvas?.remove()
   starCanvas = null
   starCtx = null
 }
 
+function newStar(w: number, h: number, i: number): StarDot {
+  const tone = i % 23 === 0 ? 2 : i % 8 === 0 ? 1 : 0 // 少量暖橙/蓝火花，余为冷灰白
+  return {
+    x: Math.random() * w,
+    y: Math.random() * h,
+    vx: -(Math.random() * 4.5 + 2.5), // 统一缓向左漂（深空风）
+    vy: Math.random() * 3 - 1.5,
+    ph: Math.random() * Math.PI * 2,
+    w: 0.35 + Math.random() * 0.5,
+    tone,
+  }
+}
+
+/* 播种/调量：resize 不重撒——旧实现在此整组重建（星点随机换位 + 连线网络全量重连），
+ * 布局过渡期 ResizeObserver 逐帧触发 = 实测一次收放 15 次重撒、星图网络频闪（§44）。
+ * 正确逻辑：既有星位置保留、出界的环绕回场，只按面积目标补/减星数。 */
 function seedStars(w: number, h: number): void {
   const n = Math.min(240, Math.max(80, Math.round((w * h) / 26000)))
   ;(window as unknown as Record<string, unknown>).__palisStars = n // 探针断言用
-  starDots = []
-  for (let i = 0; i < n; i++) {
-    const tone = i % 23 === 0 ? 2 : i % 8 === 0 ? 1 : 0 // 少量暖橙/蓝火花，余为冷灰白
-    starDots.push({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: -(Math.random() * 4.5 + 2.5), // 统一缓向左漂（深空风）
-      vy: Math.random() * 3 - 1.5,
-      ph: Math.random() * Math.PI * 2,
-      w: 0.35 + Math.random() * 0.5,
-      tone,
-    })
+  for (const d of starDots) {
+    if (d.x > w + 4) d.x = ((((d.x + 4) % (w + 8)) + w + 8) % (w + 8)) - 4
+    if (d.y > h + 4) d.y = ((((d.y + 4) % (h + 8)) + h + 8) % (h + 8)) - 4
   }
+  while (starDots.length > n) starDots.pop()
+  let i = starDots.length
+  while (starDots.length < n) starDots.push(newStar(w, h, i++))
+  // pop 减星 / 换位留下的失效连线索引，由 drawStars 的断开判定统一清理
 }
 
 function sizeStars(): void {
@@ -557,6 +537,23 @@ function sizeStars(): void {
   seedStars(w, h)
 }
 
+/* 落定防抖（§44，同 WAVE_RESIZE_SETTLE_MS 先例）：侧栏收放等布局过渡让宿主逐帧
+ * resize，逐帧 canvas.width= 清空位图 = 星场频闪的另一半温床；改为落定 160ms 后
+ * 一次性重置，过渡窗内由浏览器对旧位图短暂 CSS 拉伸（散点微粒，无感）。 */
+const STAR_RESIZE_SETTLE_MS = 160
+
+function scheduleStarResize(): void {
+  if (starDots.length === 0) {
+    sizeStars() // 首次：立即定型，否则没有可绘制内容
+    return
+  }
+  if (starResizeTimer !== undefined) clearTimeout(starResizeTimer)
+  starResizeTimer = window.setTimeout(() => {
+    starResizeTimer = undefined
+    sizeStars()
+  }, STAR_RESIZE_SETTLE_MS)
+}
+
 function drawStars(t: number, dt: number): void {
   if (starCanvas === null || starCtx === null) return
   const ctx = starCtx
@@ -569,6 +566,65 @@ function drawStars(t: number, dt: number): void {
     if (d.x < -4) d.x += w + 8
     if (d.y < -4) d.y += h + 8
     else if (d.y > h + 4) d.y -= h + 8
+  }
+  /* 星座连线（点阵 → 网络构成）：持久配对 + 滞后带（§44）——既有配对跨帧保持，
+   * 距离拉过 128px 才断开、近到 110px 内才建立，每星至多 2 条。旧实现逐帧贪心重选，
+   * 星点缓漂使选择序抖动 = 整网连线高频生灭（频闪）。
+   * 横向环绕复位的星与屏边星距离必然 >128，下一帧即断开，不会拖出横贯线；
+   * 连线画在星点之下。 */
+  const LINK_UP_D2 = 110 * 110 // 建立阈
+  const LINK_DOWN_D2 = 128 * 128 // 断开阈（滞后带，防边界抖动反复生灭）
+  const n = starDots.length
+  ctx.strokeStyle = '#8fa8d8'
+  ctx.lineWidth = 0.7
+  ctx.globalAlpha = waveActive ? 0.13 : 0.08 // 活动门：AI 工作时星座略亮
+  ctx.beginPath()
+  // ① 保持/断开既有配对（Set.forEach 内 delete 当前键安全）；顺带 prune 失效索引
+  for (const key of starLinks) {
+    const i = key >> 16
+    const j = key & 0xffff
+    if (i >= n || j >= n) {
+      starLinks.delete(key)
+      continue
+    }
+    const a = starDots[i]
+    const b = starDots[j]
+    const dx = a.x - b.x
+    const dy = a.y - b.y
+    if (dx * dx + dy * dy > LINK_DOWN_D2) {
+      starLinks.delete(key)
+      continue
+    }
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+  }
+  // ② 补足新配对：从 starLinks 重建每星计数，只找 <110px 的未配对近邻
+  const linkCounts = new Uint8Array(n)
+  for (const key of starLinks) {
+    linkCounts[key >> 16] += 1
+    linkCounts[key & 0xffff] += 1
+  }
+  for (let i = 0; i < n; i++) {
+    if (linkCounts[i] >= 2) continue
+    const a = starDots[i]
+    for (let j = i + 1; j < n; j++) {
+      if (linkCounts[j] >= 2 || starLinks.has((i << 16) | j)) continue
+      const b = starDots[j]
+      const dx = a.x - b.x
+      if (dx > 110 || dx < -110) continue
+      const dy = a.y - b.y
+      if (dx * dx + dy * dy >= LINK_UP_D2) continue
+      starLinks.add((i << 16) | j)
+      linkCounts[i] += 1
+      linkCounts[j] += 1
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+      if (linkCounts[i] >= 2) break
+    }
+  }
+  ctx.stroke()
+  ;(window as unknown as Record<string, unknown>).__palisLinks = starLinks.size // 探针断言用
+  for (const d of starDots) {
     const tw = 0.55 + 0.45 * Math.sin((t / 1000) * d.w + d.ph) // 异相慢闪烁
     ctx.globalAlpha = 0.14 + 0.34 * tw
     ctx.fillStyle = d.tone === 2 ? '#e8a89f' : d.tone === 1 ? '#7fa8ff' : '#cdd8e4'
@@ -613,9 +669,142 @@ function ensureStarfield(host: Element): void {
   sizeStars()
   if (rm) drawStars(0, 0) // reduced-motion：只画一帧静态散点
   else {
-    starResizeObs = new ResizeObserver(() => sizeStars())
+    starResizeObs = new ResizeObserver(() => scheduleStarResize())
     starResizeObs.observe(host)
   }
+}
+
+/* ═══ 美术构成扩充层（.palis-glyphs）：补「点+圆+横线」之外的构成类 ═══
+ * ⓪ 平面月盘（平涂月面版画，右锚半露）① 月面铭牌标题（排版，平面月盘可视半盘常驻）
+ * ② 等高线地形碎片（有机曲线，对完美圆环）③ 测量十字 + 编号坐标（散布测点）
+ * ④ 右缘 hex 数据流（流动文本）⑤ 错位图版（块面）⑥ 单色色卡阶梯（色块）
+ * ⑦ 栏栅格碎片（版式参考线）。
+ * 全部静态或纯 CSS transform 动画，零逐帧 JS（帧预算铁律 WORKLOG §29）。 */
+
+/** 右缘数据流内容：4 位 hex 组 ×170 行，整份复制一次供 translateY(-50%) 无缝循环。 */
+function edgeStreamText(): string {
+  const hex = '0123456789ABCDEF'
+  const lines: string[] = []
+  for (let i = 0; i < 170; i++) {
+    let s = ''
+    for (let k = 0; k < 4; k++) s += hex[(Math.random() * 16) | 0]
+    lines.push(s)
+  }
+  const copy = lines.join('\n') + '\n'
+  return copy + copy
+}
+
+function buildGlyphs(): HTMLDivElement {
+  const root = document.createElement('div')
+  root.className = 'palis-glyphs'
+  root.setAttribute('aria-hidden', 'true')
+  // ⓪ 平面月盘（v0.4.9，用户构图指令「不能全是粒子，也要加入平面设计」的平面主体）：
+  //    开机舷窗同款平涂月面贴图（ART_MOON_MAP 数据 URI 复用，浏览器复用解码），
+  //    右锚半露——粒子月球居中星系（v0.5.0），平面月盘在右（版画）。
+  //    置于 glyphs 栈底（首子节点）：测点/图版/色卡等小件叠在盘面之上 = 图纸分层。
+  const flatmoon = document.createElement('div')
+  flatmoon.className = 'pg-flatmoon'
+  const fmRing = document.createElement('i')
+  fmRing.className = 'fm-ring'
+  const fmDisc = document.createElement('div')
+  fmDisc.className = 'fm-disc'
+  // v0.5.2 无缝公转：单 img 宽 200% 时 translateX(-50%) 只走过半张图，
+  // 循环点左/右半图内容不同 = 每 140s 一帧硬切。改双副本条带（宽 400%，
+  // 各载一整张 2:1 贴图），位移一整张图宽 = 副本 B 精确顶替副本 A，无缝回绕。
+  const fmStrip = document.createElement('div')
+  fmStrip.className = 'fm-strip'
+  for (let i = 0; i < 2; i++) {
+    const fmImg = document.createElement('img')
+    fmImg.alt = ''
+    fmImg.src = 'data:image/svg+xml;utf8,' + ART_MOON_MAP
+    fmStrip.appendChild(fmImg)
+  }
+  fmDisc.appendChild(fmStrip)
+  // ① 月面铭牌（v0.5.0 迁上平面月盘，回归参考图「标题在月面上」构图）：
+  //    球体已迁入星系中心（盘面小、多被内容覆盖），铭牌改挂平面月盘的可视半盘
+  //    （左四分之一位 = 露出半区的中心），常驻静态（不再有揭示滑动）。
+  const moontitle = document.createElement('div')
+  moontitle.className = 'pg-moontitle'
+  moontitle.innerHTML = '<b>PALIS 09A</b><span>正在接入 <em>PALIS</em> 管理系统</span>'
+  flatmoon.append(fmRing, fmDisc, moontitle)
+  // ② 等高线地形碎片：三座山丘的嵌套闭合轮廓（测绘图语言）。轮廓用扁长肾形 +
+  // 逐圈偏心错位（真等高线不是同心缩放副本——嵌套偏心才读得出"山"）
+  const BLOB = 'M46,4 C62,2 84,10 91,26 C97,41 92,52 84,62 C74,74 66,88 48,88 C30,88 14,78 9,60 C5,44 10,30 20,18 C28,8 32,6 46,4 Z'
+  const cluster = (cx: number, cy: number, base: number, rot0: number, scales: readonly number[]): string => {
+    let s = ''
+    scales.forEach((sc, i) => {
+      const off = (i % 2 === 0 ? 1 : -1) * i * 1.7 // 逐圈偏心
+      s += "<path d='" + BLOB + "' transform='translate(" + (cx + off).toFixed(1) + ' ' + (cy - off * 0.6).toFixed(1) + ') rotate(' + (rot0 + i * 13) + ') scale(' + (sc * base).toFixed(3) + ") translate(-50 -50)'/>"
+    })
+    return s
+  }
+  const topo = document.createElement('div')
+  topo.className = 'pg-topo'
+  topo.innerHTML =
+    "<svg viewBox='0 0 100 100' fill='none' stroke='rgba(226,236,246,.16)' stroke-width='.6'>" +
+    cluster(48, 58, 1, 0, [1, 0.8, 0.63, 0.48, 0.35, 0.23]) +
+    cluster(80, 22, 0.4, 24, [1, 0.6, 0.28]) +
+    cluster(14, 82, 0.3, -14, [1, 0.55]) +
+    "<path d='M44,58 h8 M48,54 v8' stroke-width='.8'/></svg>"
+  const topoTag = document.createElement('span')
+  topoTag.className = 'pg-topo-tag'
+  topoTag.textContent = 'TERRAIN // REL 240M'
+  // ③ 测量十字 + 编号坐标微标签（星图测点语言；位置按宿主流体 %，均落空区。
+  //    v0.4.8：PT-01/02 原左侧两位会压月盘（月球锚左半露）——右移到 24% 列）
+  const CROSSES: Array<[string, string, string]> = [
+    ['24%', '13%', 'PT-01 · 054.23N'],
+    ['24%', '68%', 'PT-02 · 112.80E'],
+    ['33%', '6%', 'PT-03 · 038.77N'],
+    ['58%', '9%', 'PT-04 · 009.14E'],
+    ['87%', '13%', 'PT-05 · SEC.09A'],
+    ['90%', '57%', 'PT-06 · MER.014'],
+  ]
+  const crosses = CROSSES.map(([x, y, label]) => {
+    const u = document.createElement('u')
+    u.className = 'pg-cross'
+    u.style.left = x
+    u.style.top = y
+    const s = document.createElement('span')
+    s.textContent = label
+    u.appendChild(s)
+    return u
+  })
+  // ④ 右缘 hex 数据流（胶片边缘码语义）
+  const stream = document.createElement('div')
+  stream.className = 'palis-edgestream'
+  const lane = document.createElement('i')
+  lane.textContent = edgeStreamText()
+  stream.appendChild(lane)
+  // ⑤ 错位图版（平面「面」构成，对全层的点/线）：实心面 + 描边面套版偏移 + 剖面纹带
+  const plate = document.createElement('div')
+  plate.className = 'pg-plate'
+  plate.innerHTML = "<b class='a'></b><b class='b'></b><b class='h'></b><span>PL.09A // COMP.04</span>"
+  // ⑥ 单色色卡阶梯（设计系统 swatch 语义）：6 灰阶递进 + 1 暖橙 accent 收尾；
+  //    标签竖排置色条右侧（横排标签 92px 宽，1920 下会撞等高线地形块）
+  const swatch = document.createElement('div')
+  swatch.className = 'pg-swatch'
+  swatch.innerHTML = '<b></b><b></b><b></b><b></b><b></b><b></b><b></b><span>SW.07+1</span>'
+  // ⑦ 栏栅格碎片（版式参考线语义）：6 竖 + 2 横，网格只露一角（repeating-gradient 一次成组）
+  const grid = document.createElement('div')
+  grid.className = 'pg-grid'
+  grid.innerHTML = "<i class='c'></i><i class='r'></i><span>GRID // 6×2</span>"
+  root.append(flatmoon, topo, topoTag, ...crosses, stream, plate, swatch, grid)
+  return root
+}
+
+/** 幂等挂载：主题 + 背景图形开启时挂到会话根容器（宿主更换自动重挂；由 ensureGlobe 统一驱动）。 */
+function ensureGlyphs(): void {
+  if (!current.enabled || !current.artwork) {
+    glyphsEl?.remove()
+    glyphsEl = null
+    return
+  }
+  const host = document.querySelector('[data-phase]')
+  if (host === null) return
+  if (glyphsEl !== null && glyphsEl.parentElement === host) return
+  glyphsEl?.remove()
+  glyphsEl = buildGlyphs()
+  host.prepend(glyphsEl)
 }
 
 /** 幂等挂载：主题开启 + 图形开启时，把月球插到会话根容器（不随消息滚动；宿主更换自动重挂）。 */
@@ -682,8 +871,11 @@ function ensureCrtSweep(): void {
 }
 
 function ensureGlobe(): void {
+  ensureGlyphs() // 构成层与天体同门（enabled+artwork）、同宿主（[data-phase]）
   if (!current.enabled || !current.artwork) {
     dropStarfield()
+    globeResizeObs?.disconnect()
+    globeResizeObs = null
     globeEl?.remove()
     globeEl = null
     stopGlobeEngine()
@@ -698,8 +890,21 @@ function ensureGlobe(): void {
   globeEl?.remove()
   globeEl = buildGlobe()
   host.prepend(globeEl)
+  if (host instanceof HTMLElement) {
+    layoutGlobe(host) // 星系中心定位（非 RM 路径随后由 layoutSonar 统一驱动）
+    // reduced-motion：声纳不挂（其 ResizeObserver 缺席），月球自挂一个布局跟随
+    if (waveReducedMotion()) {
+      globeResizeObs?.disconnect()
+      const scroller = host.querySelector('[data-conversation-scroll]')
+      if (scroller instanceof HTMLElement) {
+        globeResizeObs = new ResizeObserver(() => layoutGlobe(host))
+        globeResizeObs.observe(scroller)
+      }
+    }
+  }
   ensureStarfield(host)
 }
+let globeResizeObs: ResizeObserver | null = null
 
 function scheduleEnsureGlobe(): void {
   const now = Date.now()
@@ -708,25 +913,24 @@ function scheduleEnsureGlobe(): void {
   queueMicrotask(ensureGlobe)
 }
 
-/** 满月揭示：左右侧栏都收起时置 html[data-palis-moon="full"]，CSS 把整盘滑进视野。
- *  左侧栏 = 布局框架的 data-sidebar-collapsed 数据属性（内核 layout 契约）；
- *  右侧栏 = better-sidebar 写到 <html> 的 --dsh-sidebar-width 布局变量
- *  （'0px'/未设置 = 收起）。条件不满足就摘除属性，球收回右缘半弧。 */
-/* 月球滑动旋转增强：揭示/隐藏翻转时给自转一个短暂加速（缓出衰减），
- * 滑动自带甩动感；真闪源=声纳 ping 环（已阈值门根治），画布无需冻结 */
+/* 侧栏收放监听（v0.5.0 起不再驱动月球位移——月球常驻星系中心，layoutSonar 逐帧
+ * 跟随滚动体几何；本观察者保留原职：收放瞬间冻结 ping 重尺寸 + 给球自转
+ * 短暂加速，沿用滑动甩感）。左侧栏 = data-sidebar-collapsed 数据属性（内核 layout
+ * 契约）；右侧栏 = --dsh-sidebar-width 布局变量（'0px'/未设置 = 收起）。
+ * 真闪源 = 声纳 ping 环逐帧重尺寸（已阈值门根治），冻结窗是过渡期双保险
+ * （v0.5.2 起只冻 ping 段——环/月球整体冻结会在落定帧瞬变回跳，WORKLOG §53）。
+ * 必须带变化检测（full 翻转才冻结）：无条件冻结会把启动时的 syncMoonReveal()
+ * 也变成冻结源——ensureSonar 的首次布局落进冻结窗被跳过，声纳/月球永远不定位 */
 let moonSlideBoost = 0
+let sidebarFullLast = false
 
 function syncMoonReveal(): void {
   const root = document.documentElement
   const leftCollapsed = document.querySelector('[data-sidebar-collapsed]') !== null
   const rightW = root.style.getPropertyValue('--dsh-sidebar-width').trim()
-  const rightCollapsed = rightW === '' || rightW === '0px'
-  const full = leftCollapsed && rightCollapsed
-  if ((root.getAttribute('data-palis-moon') === 'full') === full) return
-  if (full) root.setAttribute('data-palis-moon', 'full')
-  else root.removeAttribute('data-palis-moon')
-  // 滑动旋转增强：翻转即加自转（引擎内指数衰减 ~1.2s）；同时冻结声纳几何/动画
-  // 落盘（ping 环阈值门之外的过渡期双保险）
+  const full = leftCollapsed && (rightW === '' || rightW === '0px')
+  if (full === sidebarFullLast) return
+  sidebarFullLast = full
   moonSlideBoost = 1
   sonarFreezeUntil = performance.now() + 700
 }
@@ -923,21 +1127,24 @@ function drawWave(lane: WaveLane, t: number, amp: number): void {
  * 与月球同款的 client DOM 层：.palis-sonar 挂到不滚动的根容器 [data-phase]（z-index:-1，
  * 透过滚动体的透明背景可见，轨道线压在其上形成纵深），按背景定位公式反解圆心对位。
  * 三层动效：
- *   ping 扩散（<i>×3 + 中心点 <b>，CSS animation，活动门变速）；
- *   轨道环旋转（<s>×5：蓝环 r=184 + 灰环 r=348/264/96/30，与各静态环同径的 mask 虚线环，
- *     JS 逐帧积分角度，ω = speed·(sin+0.6·sin+0.3) 符号自然翻转 = 不规律顺/逆时针交替）；
+ *   ping 扩散（<i>×3，CSS animation，活动门变速）；
+ *   轨道环旋转（<s>×4：蓝环 r=184 + 灰环 r=348/264/430，与各静态环同径的 mask 虚线环，
+ *     JS 逐帧积分角度，ω = speed·(sin+0.6·sin+0.3) 符号自然翻转 = 不规律顺/逆时针交替；
+ *     中心圆点/r=30 环/r=96 环已随 v0.5.0/v0.5.1 退役——粒子月球接替星系中心天体位）；
  *   行星公转（<u>×9：接替 ART_ORBIT 抠掉的 8 个节点白点，正交 4 颗巡 r=430、对角 4 颗巡
  *     r=294，开普勒式内快外慢，另加 1 颗 accent 卫星巡蓝环 r=184）。
  * 活动门：波动条引擎按 [data-streaming] 翻 html[data-palis-activity]（CSS 透明度/ping 变速），
  * JS 侧经 orbitHeat 快起慢落地把角速度 ×(1+3·heat)。 */
 interface SonarRing { el: HTMLElement; ratio: number; angle: number; speed: number; f1: number; f2: number; p1: number; p2: number }
 interface SonarPlanet { el: HTMLElement; ratio: number; angle: number; speed: number }
+interface SonarDeg { el: HTMLElement; dx: number; dy: number } // 方位度数标记（最外环外缘 000/090/180/270）
 let sonarEl: HTMLDivElement | null = null
 let crtSweepEl: HTMLDivElement | null = null // 扫描频带独立层（transform 动画，免全屏 background-position 逐帧重绘）
 let frameEl: HTMLDivElement | null = null // ASCII 取景框层（四角标记/铭牌/滚动读数）
 let frameReadRaf = 0 // 读数 rAF 句柄
 let statusbarEl: HTMLDivElement | null = null // tmux 式底部状态栏
 let statusbarClock = 0 // UTC/相位钟句柄
+let glyphsEl: HTMLDivElement | null = null // 美术构成扩充层（月面铭牌/等高线/测点/边缘数据流）
 
 /** 磁带播放头：prepend 进滚动容器（随内容滚动，与磁带尺 ::before 对齐）。
  *  transform 移动 = 合成器合成，不用 background-position/变量（避免逐帧样式重算）。 */
@@ -982,9 +1189,10 @@ let sonarResize: ResizeObserver | null = null
 let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
 let sonarPlanets: SonarPlanet[] = []
+let sonarDegs: SonarDeg[] = []
 let sonarScale = 0
 let sonarLastPingD = 0 // ping 环当前直径（阈值门用）
-let sonarFreezeUntil = 0 // 侧栏过渡期冻结：ResizeObserver 逐帧重布局会把 ping 环动画插值顶到最坏帧（单帧爆亮，WORKLOG 27）
+let sonarFreezeUntil = 0 // 侧栏过渡期 ping 重尺寸冻结（§25 定案防护；v0.5.2 起只冻 ping，几何/旋转逐帧跟随）
 let orbitRaf = 0
 let orbitLast = 0
 let orbitHeat = 0
@@ -999,15 +1207,18 @@ function removeSonar(): void {
   orbitHeat = 0
   sonarRings = []
   sonarPlanets = []
+  sonarDegs = []
   sonarEl?.remove()
   sonarEl = null
 }
 
 /** 背景图定位反解：orbit 在滚动体上以 size 70% auto / position 50% 58% 居中（SVG 正方）。
- *  旋转环定径：mask 圆半径 = 元素边长 ×47% → 边长 = S × 环半径/470；行星轨道半径 = S × r/1000。 */
+ *  旋转环定径：mask 圆半径 = 元素边长 ×47% → 边长 = S × 环半径/470；行星轨道半径 = S × r/1000。
+ *  v0.5.2：冻结窗只冻 ping 重尺寸（§25 定案防护不动）；环/度数/月球逐帧跟随滚动体几何——
+ *  v0.5.0 月球迁入星系中心后，整体冻结会在落定帧产生月球/环系 ~112px 瞬变回跳 +
+ *  ping 一次重尺寸爆亮（verify-moon-teleport 取证：1184→1296 单帧）。 */
 function layoutSonar(host: HTMLElement): void {
   if (sonarEl === null) return
-  if (performance.now() < sonarFreezeUntil) return // 冻结窗：几何保持过渡前值
   const scroller = host.querySelector('[data-conversation-scroll]')
   if (!(scroller instanceof HTMLElement)) return
   const hr = host.getBoundingClientRect()
@@ -1021,9 +1232,18 @@ function layoutSonar(host: HTMLElement): void {
     ring.el.style.width = d.toFixed(1) + 'px'
     ring.el.style.height = d.toFixed(1) + 'px'
   }
+  // 方位度数标记：最外环（r=430）外缘 20px 的四正点（仪表语言，固定不随环转）
+  for (const deg of sonarDegs) {
+    const r = 0.43 * s + 20
+    deg.el.style.left = (deg.dx * r).toFixed(1) + 'px'
+    deg.el.style.top = (deg.dy * r).toFixed(1) + 'px'
+  }
+  layoutGlobe(host) // 星系中心天体（月球）同圆心同基准跟随（v0.5.0；v0.5.2 起逐帧跟随不进冻结窗）
   // ping 环定径：保底 760px，超宽屏按 1.1·S 越过最外轨道环（r=430 → 0.86·S）。
   // 仅增量 >40px 才重尺寸（构建期已定一次）：ping 环是 6.4s 无限动画元素，逐帧改
   // width/margin 会把动画插值顶爆成单帧亮闪（WORKLOG 25/27 最终定案）。
+  // 冻结窗只冻这一段（v0.5.2）：过渡期 ping 几何保持前值，落定后一次性重尺寸。
+  if (performance.now() < sonarFreezeUntil) return
   const pingD = Math.max(760, 1.1 * s)
   if (Math.abs(sonarLastPingD - pingD) <= 40) return
   sonarLastPingD = pingD
@@ -1038,7 +1258,8 @@ function layoutSonar(host: HTMLElement): void {
 function orbitFrame(t: number): void {
   orbitRaf = 0
   if (sonarEl === null || !sonarEl.isConnected) return
-  if (performance.now() < sonarFreezeUntil) { orbitRaf = requestAnimationFrame(orbitFrame); return } // 冻结窗：帧照跑不落盘
+  // v0.5.2：旋转不再进冻结窗——几何已逐帧跟随（无落定跳变），冻结旋转反而
+  // 造成「环停球转」的新不一致；transform 写入无重尺寸风险。
   const dt = orbitLast > 0 ? Math.min(0.1, (t - orbitLast) / 1000) : 0.016
   orbitLast = t
   const heatTarget = waveActive ? 1 : 0
@@ -1082,14 +1303,15 @@ function ensureSonar(): void {
     if (cls !== '') el.className = cls
     return { el, ratio, angle: 0, speed, f1, f2, p1, p2 }
   }
-  /* speed 正 = 屏上顺时针；双频正弦叠加使 ω 不规律换向；speed 大环慢、小环快 */
+  /* speed 正 = 屏上顺时针；双频正弦叠加使 ω 不规律换向；speed 大环慢、小环快。
+     v0.5.0：中心环 g0（r=30）与中心圆点 <b> 退役——粒子月球迁入星系中心接替
+     中心天体位（用户构图指令：月球对那圆点进行替换）；
+     v0.5.1：g1（r=96）同退——盘面半径 0.15·S 已覆过 r=96，环弧会横穿月面 */
   sonarRings = [
     ring('', 0.3915, 0.16, 0.19, 0.53, 0, 2.1), // 蓝环 r=184
     ring('g3', 0.7404, 0.08, 0.12, 0.37, 5.2, 3.3), // 灰环 r=348
     ring('g4', 0.9149, 0.06, 0.1, 0.31, 0.8, 5.7), // 灰环 r=430（最外圈也转）
     ring('g2', 0.5617, -0.1, 0.15, 0.41, 3.9, 1.8), // 灰环 r=264
-    ring('g1', 0.2043, -0.22, 0.23, 0.61, 1.3, 4.0), // 灰环 r=96
-    ring('g0', 0.0638, 0.3, 0.31, 0.83, 2.6, 0.7), // 中心环 r=30
   ]
   const WO = (2 * Math.PI) / 240 // 外环带公转基速：静默 4 分钟/圈
   const planet = (cls: string, ratio: number, angle: number, speed: number): SonarPlanet => {
@@ -1105,11 +1327,20 @@ function ensureSonar(): void {
     planet('d', 0.29416, Math.PI / 4, WO * 1.77), planet('d', 0.29416, (3 * Math.PI) / 4, WO * 1.77),
     planet('a', 0.184, 0.9, WO * 3.58), // 蓝环 accent 卫星
   ]
+  // 方位度数标记：000 上 / 090 右 / 180 下 / 270 左（仪表语言；<n> 元素，
+  // 不占 <i>/<s>/<u> 的既有选择器序位）
+  sonarDegs = ([
+    ['000°', 0, -1], ['090°', 1, 0], ['180°', 0, 1], ['270°', -1, 0],
+  ] as Array<[string, number, number]>).map(([txt, dx, dy]) => {
+    const el = document.createElement('n')
+    el.textContent = txt
+    return { el, dx, dy }
+  })
   sonarEl.append(
     document.createElement('i'), document.createElement('i'), document.createElement('i'),
-    document.createElement('b'),
     ...sonarRings.map((r) => r.el),
     ...sonarPlanets.map((p) => p.el),
+    ...sonarDegs.map((d) => d.el),
   )
   host.prepend(sonarEl)
   layoutSonar(host)
@@ -1413,7 +1644,7 @@ export function apply(ctx: ClientContext): void {
     globeObserver.observe(document.body, { childList: true, subtree: true })
     ensureGlobe()
 
-    // 满月揭示：左右侧栏全收 → html[data-palis-moon="full"]（CSS 把整盘滑进视野）。
+    // 侧栏收放监听：收放瞬间冻结声纳几何/动画落盘 + 球自转短暂加速（滑动甩感）。
     // 只信稳定契约：左侧栏 = 布局框架的 data-sidebar-collapsed 数据属性；
     // 右侧栏 = better-sidebar 写到 <html> 的 --dsh-sidebar-width 布局变量
     // （0px/未设置 = 收起）——不碰哈希类名（面板设计红线）。
@@ -1542,7 +1773,6 @@ export function apply(ctx: ClientContext): void {
       globeObserver = null
       moonRevealObserver?.disconnect()
       moonRevealObserver = null
-      document.documentElement.removeAttribute('data-palis-moon')
       globeEl?.remove()
       globeEl = null
       stopGlobeEngine()
@@ -1551,6 +1781,8 @@ export function apply(ctx: ClientContext): void {
       document.removeEventListener("input", composerCounter, { capture: true })
       frameEl?.remove()
       frameEl = null
+      glyphsEl?.remove()
+      glyphsEl = null
       window.clearInterval(statusbarClock)
       statusbarEl?.remove()
       statusbarEl = null

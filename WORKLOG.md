@@ -2010,3 +2010,17 @@ v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「�
   天体上的假标注（TERRAIN // REL 240M 等）与 starfield 无信息闪烁留待后续。
 
 署名：ox-alpha
+
+## 62. 开机自检换真实接入报告（0.5.10，2026-09-10）
+
+- 拟态自检文本（INDEX BUS SELF-TEST / IDENTITY_CHAIN / GROUND TRACK 等 8 行 + 副标题
+  「正在接入 PALIS 管理系统」+ 月面铭牌同款文案）全部换成真实来源：工作区、外壳版本、
+  内核版本与端口、插件装载/问题/隔离数、主题版本与 revision、视口与 DPR、启动耗时。
+- 原则延续 0.5.9：取不到就显示 -- 且不标色，没有外壳时明确报「独立会话/STANDALONE」
+  红字，而不是演一个不存在的接入过程；插件有问题的那行标红（新增 .pb-lines .err）。
+- 验证：headless 上下文（无外壳）截图 verify-out/boot-report-browser.png —— THEME/VIEWPORT
+  为真值，其余 --，LINK STANDALONE 红字。真机三段版本已由 0.5.9 的 E2E 截图验证。
+- 排坑：抓覆盖层要在它存活的 2.5s 内截图——把「关掉内核首启弹窗」从截图前挪到挂载后
+  立刻执行，否则它把取景时间推后；渲染探针因此新增 --settle 可调等待。
+
+署名：ox-alpha

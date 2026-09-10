@@ -937,6 +937,7 @@ export const PALIS_CSS = [
   '.palis-boot .pb-lines span{display:block;opacity:0;animation:palis-boot-line .18s steps(2) forwards}',
   '.palis-boot .pb-lines .ok{color:#9fb4c9}',
   '.palis-boot .pb-lines .accent{color:#6f9cff}',
+  '.palis-boot .pb-lines .err{color:#c8322b}',
   '@keyframes palis-boot-bar{to{transform:scaleX(1)}}',
   '@keyframes palis-boot-line{to{opacity:1}}',
 

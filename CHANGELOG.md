@@ -1,3 +1,30 @@
+## 0.5.10 — 2026-09-10
+
+开机自检覆盖层：拟态自检文本 → **真实"接入报告"**（同一方向：少一点无信息修饰）。
+
+**背景**
+- 舷窗副标题「正在接入 PALIS 管理系统」与 8 行自检（`INDEX BUS SELF-TEST …… OK`、
+  `IDENTITY_CHAIN …… VERIFIED`、`GROUND TRACK …… LOCKED`…）全是编造的，不交代任何实际情况。
+- 真数据其实都在手边：外壳的 phase/端口/耗时、插件体检报告、主题自身版本与 revision、
+  视口与 devicePixelRatio。
+
+**改动**
+- 新增 `collectBootFacts()`（一次会话内缓存）：聚合外壳状态（`window.dshShell.status()`）、
+  插件体检（`pluginsReport()`）、主题版本（自有 API）、视口与 DPR、启动耗时。
+- 副标题改为真实接入状态：`已接入 内核 <KRN> <P端口> · <耗时>`；**没有外壳时明确报
+  `独立会话 未接外壳`**，不再演一个不存在的接入过程。
+- 8 行自检改为真实接入报告：`CHANNEL`（工作区）/ `SHELL` / `KERNEL`（版本+端口）/
+  `PLUGINS`（装载数·问题数·隔离数）/ `THEME`（版本+revision）/ `VIEWPORT`（尺寸@DPR）/
+  `BOOT`（启动耗时）/ `LINK`（ESTABLISHED / STANDALONE）。取不到的显示 `--` 且不标色；
+  插件有问题的那行标红（新增 `.pb-lines .err` 色）。
+- 月面铭牌（常驻）：`正在接入 PALIS 管理系统` → `WS//<工作区> · KRN <内核> · P<端口>`。
+
+**验证**
+- 浏览器上下文（headless Chrome，无外壳）：`THEME palis 0.5.9 · rev 1`、
+  `VIEWPORT 1600×900 @2.73x` 为真值；`CHANNEL/SHELL/KERNEL/PLUGINS/BOOT` 显示 `--`；
+  `LINK STANDALONE` 红字——降级路径与"不臆造"原则一致（截图
+  `verify-out/boot-report-browser.png`）。
+
 ## 0.5.9 — 2026-09-10
 
 把角标与状态栏铭牌的**假数据换成真值**（长期方向：少一点无信息修饰，多一点信息表达）。

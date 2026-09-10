@@ -146,9 +146,9 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
   if (next.enabled) ensureThemeCss()
   else dropThemeCss()
   if (next.enabled && (opts?.allowBoot ?? next.boot) && !bootPlayed && !waveReducedMotion()) {
-    // 开机自检是纯装饰性 steps() 闪烁动画——reduced-motion 下整段跳过（直接进桌面）
+    // 开机自检（reduced-motion 下整段跳过）。内部先取真凭实据再播放，故为异步 fire-and-forget
     bootPlayed = true
-    playBoot()
+    void playBoot()
   }
   syncFloat()
   ensureGlobe()
@@ -725,7 +725,11 @@ function buildGlyphs(): HTMLDivElement {
   //    （左四分之一位 = 露出半区的中心），常驻静态（不再有揭示滑动）。
   const moontitle = document.createElement('div')
   moontitle.className = 'pg-moontitle'
-  moontitle.innerHTML = '<b>PALIS 09A</b><span>正在接入 <em>PALIS</em> 管理系统</span>'
+  const mtBrand = document.createElement('b')
+  mtBrand.textContent = 'PALIS 09A'
+  const mtInfo = document.createElement('span')
+  moontitle.append(mtBrand, mtInfo)
+  void paintMoonLabel(mtInfo) // 月面铭牌：静态拟态文本 → 真实工作环境（工作区/内核版本）
   flatmoon.append(fmRing, fmDisc, moontitle)
   // ② 等高线地形碎片：三座山丘的嵌套闭合轮廓（测绘图语言）。轮廓用扁长肾形 +
   // 逐圈偏心错位（真等高线不是同心缩放副本——嵌套偏心才读得出"山"）
@@ -854,6 +858,7 @@ interface ShellState {
   kernelVersion?: string
   port?: number
   workspace?: string
+  elapsedMs?: number
 }
 
 async function readShellState(): Promise<ShellState | null> {
@@ -864,6 +869,83 @@ async function readShellState(): Promise<ShellState | null> {
   } catch {
     return null
   }
+}
+
+/** 外壳的插件体检报告（可选依赖，同上特性探测）。 */
+async function readPluginsReport(): Promise<{ items?: unknown[]; problems?: unknown[]; quarantined?: unknown[] } | null> {
+  const shell = (window as unknown as { dshShell?: { pluginsReport?: () => Promise<Record<string, unknown>> } }).dshShell
+  if (shell === undefined || typeof shell.pluginsReport !== 'function') return null
+  try {
+    return (await shell.pluginsReport()) as { items?: unknown[]; problems?: unknown[]; quarantined?: unknown[] }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 开机自检要报的"真凭实据"。每项都有真实来源，**拿不到就留空**，由调用方显示占位——
+ * 这层覆盖以前整屏是拟态文本（`GROUND TRACK ... LOCKED` 之类），现在改为交代实际情况：
+ * 接没接上外壳、内核是哪个版本跑在哪个端口、插件装了几个有没有问题、主题版本、视口与
+ * DPR（视觉排查时这两个值最有用）、启动耗时。
+ */
+interface BootFacts {
+  linked: boolean
+  workspace: string
+  shell: string
+  kernel: string
+  port: string
+  plugins: string
+  pluginsBad: boolean
+  theme: string
+  viewport: string
+  boot: string
+}
+
+let bootFactsCache: BootFacts | null = null
+
+async function collectBootFacts(): Promise<BootFacts> {
+  if (bootFactsCache !== null) return bootFactsCache
+  const facts: BootFacts = {
+    linked: false, workspace: '', shell: '', kernel: '', port: '',
+    plugins: '', pluginsBad: false, theme: '', viewport: '', boot: '',
+  }
+  facts.viewport = `${window.innerWidth}×${window.innerHeight} @${(window.devicePixelRatio || 1).toFixed(2)}x`
+  try {
+    const view = await apiGet()
+    facts.theme = view.version ? `palis ${view.version} · rev ${view.revision}` : `rev ${view.revision}`
+  } catch {
+    /* 主题版本拿不到就留空 */
+  }
+  const state = await readShellState()
+  if (state !== null) {
+    facts.linked = true
+    if (state.version) facts.shell = `dsh-desktop ${state.version}`
+    if (state.kernelVersion) facts.kernel = state.kernelVersion
+    if (typeof state.port === 'number' && state.port > 0) facts.port = 'P' + String(state.port)
+    const ws = String(state.workspace || '').split(/[\\/]/).filter(Boolean).pop() || ''
+    if (ws !== '') facts.workspace = ws.slice(0, 24)
+    if (typeof state.elapsedMs === 'number' && state.elapsedMs > 0) facts.boot = (state.elapsedMs / 1000).toFixed(1) + 's'
+  }
+  const report = await readPluginsReport()
+  if (report !== null) {
+    const total = Array.isArray(report.items) ? report.items.length : 0
+    const bad = Array.isArray(report.problems) ? report.problems.length : 0
+    const quarantined = Array.isArray(report.quarantined) ? report.quarantined.length : 0
+    facts.pluginsBad = bad > 0 || quarantined > 0
+    facts.plugins = `${total} loaded` + (bad > 0 ? ` · ${bad} problem` : '') + (quarantined > 0 ? ` · ${quarantined} quarantined` : '')
+  }
+  bootFactsCache = facts // 一次会话内不变（端口/版本/插件装载都是启动期事实），供角标与铭牌复用
+  return facts
+}
+
+/** 月面铭牌真值：`WS//<工作区> · KRN <内核版本> · P<端口>`（拿不到则保持空，不臆造）。 */
+async function paintMoonLabel(el: HTMLElement): Promise<void> {
+  const facts = await collectBootFacts()
+  const parts: string[] = []
+  if (facts.workspace !== '') parts.push('WS//' + facts.workspace)
+  if (facts.kernel !== '') parts.push('KRN ' + facts.kernel)
+  if (facts.port !== '') parts.push(facts.port)
+  if (parts.length > 0) el.textContent = parts.join(' · ')
 }
 
 function ensureStatusBar(): void {
@@ -1559,7 +1641,7 @@ async function setField(
 }
 
 /* ═══ 开机自检动画（CRT 点火 + 舷窗月球：参考 PALIS 09A 总目录屏的大圆窗构图）═══ */
-function playBoot(): void {
+async function playBoot(): Promise<void> {
   const overlay = document.createElement('div')
   overlay.className = 'palis-boot'
 
@@ -1581,7 +1663,18 @@ function playBoot(): void {
   title.textContent = 'PALIS 09A'
   const sub = document.createElement('div')
   sub.className = 'pb-sub'
-  sub.innerHTML = '正在接入 <b>PALIS 管理系统</b>'
+  // 副标题 = 真实接入状态（此前是拟态的"正在接入 PALIS 管理系统"）。
+  // 拿不到外壳数据时明确报"独立会话"，而不是继续演一个并不存在的接入过程。
+  const facts = await collectBootFacts()
+  const em = (text: string): HTMLElement => {
+    const b = document.createElement('b')
+    b.textContent = text
+    return b
+  }
+  sub.append(document.createTextNode(facts.linked ? '已接入 ' : '独立会话 '), em(facts.linked ? '内核' : '未接外壳'))
+  if (facts.kernel !== '') sub.append(document.createTextNode(' ' + facts.kernel))
+  if (facts.port !== '') sub.append(document.createTextNode(' ' + facts.port))
+  if (facts.boot !== '') sub.append(document.createTextNode(' · ' + facts.boot))
   portText.append(title, sub)
   port.append(moon, portRing, portCross, portText)
 
@@ -1593,15 +1686,17 @@ function playBoot(): void {
   lines.className = 'pb-lines'
   overlay.append(port, bar, lines)
 
+  // 自检行 = 真实"接入报告"（此前是 GROUND TRACK / IDENTITY_CHAIN 那类编造条目）。
+  // 每一项都对应一个真实来源；缺失显示 `--` 且不标色，有问题的那行标红。
   const seq: Array<{ text: string; cls?: string; delay: number }> = [
-    { text: 'CHANNEL: 09A / ARCHIVE TERMINAL', delay: 60 },
-    { text: 'INDEX BUS SELF-TEST ......... OK', cls: 'ok', delay: 260 },
-    { text: 'NINE RECORD FAMILIES ........ OK', cls: 'ok', delay: 440 },
-    { text: 'IDENTITY_CHAIN ............... VERIFIED', cls: 'accent', delay: 620 },
-    { text: 'CRT RENDER LAYER ............ ONLINE', cls: 'ok', delay: 800 },
-    { text: 'ARCHIVE DIRECTORY ........... READY', cls: 'ok', delay: 980 },
-    { text: 'GROUND TRACK ............. LOCKED', cls: 'ok', delay: 1160 },
-    { text: 'VIEWFINDER [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2591\u2591] ARMED', cls: 'accent', delay: 1340 },
+    { text: `CHANNEL ......... ${facts.workspace !== '' ? facts.workspace : '--'}`, delay: 60 },
+    { text: `SHELL ........... ${facts.shell !== '' ? facts.shell : '--'}`, cls: facts.shell !== '' ? 'ok' : '', delay: 240 },
+    { text: `KERNEL .......... ${facts.kernel !== '' ? facts.kernel : '--'}${facts.port !== '' ? ' ' + facts.port : ''}`, cls: facts.kernel !== '' ? 'ok' : '', delay: 420 },
+    { text: `PLUGINS ......... ${facts.plugins !== '' ? facts.plugins : '--'}`, cls: facts.plugins === '' ? '' : facts.pluginsBad ? 'err' : 'ok', delay: 600 },
+    { text: `THEME ........... ${facts.theme !== '' ? facts.theme : '--'}`, cls: facts.theme !== '' ? 'accent' : '', delay: 780 },
+    { text: `VIEWPORT ........ ${facts.viewport}`, delay: 960 },
+    { text: `BOOT ............ ${facts.boot !== '' ? facts.boot : '--'}`, cls: facts.boot !== '' ? 'ok' : '', delay: 1140 },
+    { text: `LINK ............ ${facts.linked ? 'ESTABLISHED' : 'STANDALONE'}`, cls: facts.linked ? 'accent' : 'err', delay: 1340 },
   ]
   for (const item of seq) {
     const span = document.createElement('span')

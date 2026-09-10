@@ -839,6 +839,8 @@ export const PALIS_CSS = [
   '.palis-sonar i{position:absolute;left:0;top:0;width:760px;height:760px;margin:-380px 0 0 -380px;',
   'border:1px solid rgba(79,128,245,.42);border-radius:50%;opacity:0;',
   'box-shadow:0 0 18px rgba(43,95,217,.16)}',
+  /* 回声波（v0.5.11）：主波后方 0.62× 半径处的细淡环，让"波"有厚度；不加重辉光 */
+  '.palis-sonar i.echo{border-color:rgba(79,128,245,.26);box-shadow:none}',
   /* 活动态只许"略活跃"：峰值/辉光收敛（0.95→0.60、周期 2.3s→4s）——主角是月球，
      声纳是观测氛围的配角，双动效同开时二者比重不得对等（2026-08-31 用户反馈：凌乱）。
      v0.5.7：峰值/周期改由 JS orbitFrame 读 waveActive 同参切换，CSS 只留描边提亮 */

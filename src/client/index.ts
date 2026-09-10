@@ -1295,22 +1295,6 @@ let orbitRaf = 0
 let orbitLast = 0
 let orbitHeat = 0
 
-/** cubic-bezier(.17,.67,.35,1) 求解器（二分逼近）：ping 扩散与原 CSS 动画同款缓动，
- *  v0.5.7 改 JS 逐帧驱动后须逐帧求值（输入相位进度 x，输出缓动值 y）。 */
-const PING_EASE = ((): (x: number) => number => {
-  const X1 = 0.17, Y1 = 0.67, X2 = 0.35, Y2 = 1
-  const sample = (a1: number, a2: number, t: number): number =>
-    3 * (1 - t) * (1 - t) * t * a1 + 3 * (1 - t) * t * t * a2 + t * t * t
-  return (x: number): number => {
-    let lo = 0, hi = 1
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2
-      if (sample(X1, X2, mid) < x) lo = mid; else hi = mid
-    }
-    return sample(Y1, Y2, (lo + hi) / 2)
-  }
-})()
-
 /** ping 重尺寸排队到各环自己的不可见窗口落笔（v0.5.3）：
  *  §25 定案：无限循环的扩散环在可见相位改径 = 用户可见的瞬时跳变；
  *  冻结窗+阈值门只压次数，落笔时机仍是随机相位（三环错相 1/3 周期，
@@ -1415,25 +1399,30 @@ function orbitFrame(t: number): void {
   const dt = orbitLast > 0 ? Math.min(0.1, (t - orbitLast) / 1000) : 0.016
   orbitLast = t
   const heatTarget = waveActive ? 1 : 0
-  orbitHeat += (heatTarget - orbitHeat) * (heatTarget > orbitHeat ? 0.05 : 0.015) // 快起慢落
-  /* 活动态只给 2.2×（原 4×）：月球的活动提亮保留，声纳只许"略活跃"——
-     双动效同开时不再"疯狂转动"与月球抢戏（2026-08-31 用户反馈：凌乱） */
-  const boost = 1 + 1.2 * orbitHeat
+  /* 活动态过渡放缓（0.05/0.015 → 0.02/0.008）：速度变化要"渐起渐落"才细腻，
+     猛起猛落会读成"卡了一下" */
+  orbitHeat += (heatTarget - orbitHeat) * (heatTarget > orbitHeat ? 0.02 : 0.008)
+  /* 活动态只给 1.6×（原 2.2×）：细腻优先——活动感主要由 ping 波的密度表达，
+     环的转速只是轻微加快（与月球同开时不抢戏） */
+  const boost = 1 + 0.6 * orbitHeat
   const tt = t / 1000
-  /* ping 扩散环逐帧驱动（v0.5.7：原 CSS animation 同参复刻——cubic-bezier(.17,.67,.35,1)
-     展开曲线、三环 1/3 周期错相、活动态 6.4s→4s/峰值 .42→.60）；
-     逐帧写 width/height/margin/opacity，不走 transform——圆形动效零合成层（v0.5.5 法典）。 */
-  const pingPeriod = waveActive ? 4 : 6.4
-  const pingPk = waveActive ? 0.6 : 0.42
+  /* ping 波前逐帧驱动（v0.5.7 起 JS 驱动以避开合成层缩放；v0.5.11 起改"波前"质感）：
+     · 半径用减速缓动（快出慢收）——像波前推进，而不是"圈弹出来"
+     · 透明度用平滑包络 ph^.45·(1-ph)^1.5 归一化（峰值落在 ph≈0.23、长尾衰减）——
+       取代原三段折线（段间斜率跳变在暗场里看得出"折"）
+     · 每波带一个回声环（0.62× 半径、0.34× 不透明度；活动态 0.5×）——波有厚度
+     · 仍逐帧写 width/height/margin/opacity，不走 transform（圆形动效零合成层） */
+  const pingPeriod = waveActive ? 5.0 : 6.8
+  const pingPk = waveActive ? 0.46 : 0.34
+  const echoGain = waveActive ? 0.5 : 0.34
+  const ph = (tt % pingPeriod) / pingPeriod
+  const kMain = 0.05 + 0.95 * (1 - Math.pow(1 - ph, 3.2)) // 减速波前
+  const env = (Math.pow(ph, 0.45) * Math.pow(1 - ph, 1.5)) / 0.3536 // 归一化到峰值 1（ph≈0.23）
   for (let j = 0; j < sonarPings.length; j++) {
-    const ph = ((((tt - (j * pingPeriod) / 3) % pingPeriod) + pingPeriod) % pingPeriod) / pingPeriod
-    const k = 0.05 + 0.95 * PING_EASE(ph)
+    const isEcho = j === 1
+    const k = isEcho ? Math.max(0.05, kMain * 0.62) : kMain
     const d = (pingBaseDs[j] ?? 760) * k
-    // 透明度包络 = 原 keyframes 分段（段内同款缓动）：0→pk@9% → 0.4·pk@62% → 0@100%
-    let op: number
-    if (ph < 0.09) op = pingPk * PING_EASE(ph / 0.09)
-    else if (ph < 0.62) op = pingPk * (1 - 0.6 * PING_EASE((ph - 0.09) / 0.53))
-    else op = pingPk * 0.4 * (1 - PING_EASE((ph - 0.62) / 0.38))
+    const op = pingPk * env * (isEcho ? echoGain : 1)
     const el = sonarPings[j]
     el.style.width = d.toFixed(1) + 'px'
     el.style.height = d.toFixed(1) + 'px'
@@ -1442,7 +1431,14 @@ function orbitFrame(t: number): void {
     pingOpacities[j] = op
   }
   for (const r of sonarRings) {
-    const w = r.speed * (Math.sin(tt * r.f1 + r.p1) + 0.6 * Math.sin(tt * r.f2 + r.p2) + 0.3)
+    /* 三个相差一个数量级的时间尺度叠加：f1（数秒–数十秒）给"呼吸"、f2 给不规则换向、
+       0.16·f1（分钟级）给长期漂移——合起来看不出循环，"像天气"而不是"像程序在转" */
+    const w = r.speed * (
+      Math.sin(tt * r.f1 + r.p1) +
+      0.6 * Math.sin(tt * r.f2 + r.p2) +
+      0.25 * Math.sin(tt * r.f1 * 0.16 + r.p2 * 1.7) +
+      0.3
+    )
     r.angle += w * dt * boost
     r.el.style.transform = 'translate(-50%,-50%) rotate(' + r.angle.toFixed(4) + 'rad)'
   }
@@ -1499,10 +1495,11 @@ function ensureSonar(): void {
     return { el, dx, dy }
   })
   // ping 扩散环 ×3：v0.5.7 起由 orbitFrame 逐帧驱动（尺寸/透明度全在 JS 侧，CSS 只给基态）
-  // v0.5.11 极简化：ping 扩散环 ×3 → ×1（单环呼吸已足够表达"活动"，三环错相是密集语汇）
-  sonarPings = [document.createElement('i')]
-  pingOpacities = [0]
-  pingBaseDs = [760]
+  // v0.5.11：ping 扩散环 ×1 → 主波 + 回声波（波有厚度；仍少于原先的三环错相）
+  sonarPings = [document.createElement('i'), document.createElement('i')]
+  sonarPings[1].className = 'echo'
+  pingOpacities = [0, 0]
+  pingBaseDs = [760, 760]
   sonarEl.append(
     ...sonarPings,
     ...sonarRings.map((r) => r.el),

@@ -621,6 +621,15 @@ export const PALIS_CSS = [
   '--ds-transition-duration:.16s;--ds-transition-duration-fast:.1s;--ds-transition-duration-slow:.3s;',
   '--ds-ease-in-out:cubic-bezier(.4,0,.15,1);',
   '--palis-noise-on:1;--palis-scan-on:1;--palis-vignette-on:1;',
+  /* ── 视觉比重四级（v0.5.11）：装饰层一律从这里取值，杜绝散落的魔法数字导致的隐性层级倒挂。
+     W1 信息：状态读数 / 输入文字 / 当前活动（最亮，眼睛的落点）
+     W2 结构：四角标 / 刻度 / 边码（交代"这是什么界面"）
+     W3 环境：天体纹理 / 等高线 / 环系（只提供氛围，不该抢读）
+     W4 介质：扫描线 / 噪点 / 暗角（几乎不可察，由 intensity 档位在 .015–.045 间调）
+     另两条硬规则：强调蓝只用于身份与当前态；红只留给真实错误（不当装饰色用）。 ── */
+  '--palis-w1:rgba(236,236,236,.92);--palis-w2:rgba(236,236,236,.44);--palis-w3:rgba(236,236,236,.16);',
+  '--palis-accent:rgba(111,156,255,.62);--palis-danger:rgba(200,50,43,.92);',
+  '--palis-moon-lift:.86;',
   'transition:--palis-scan-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-noise-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-vignette-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
   '@property --palis-scan-alpha{syntax:"<number>";inherits:true;initial-value:.028}',
@@ -890,12 +899,8 @@ export const PALIS_CSS = [
   'border:1px solid rgba(236,236,236,.12);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
-  '.palis-globe-dither{position:absolute;inset:0;opacity:.07;',
-  'background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'140\' height=\'140\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'2\'/><feColorMatrix type=\'saturate\' values=\'0\'/></filter><rect width=\'140\' height=\'140\' filter=\'url(%23n)\'/></svg>")}',
-  '.palis-globe-dust{position:absolute;inset:0;opacity:.6;animation:palis-dust-tw 7s ease-in-out infinite}',
-  '.palis-globe-dust.d2{animation-duration:9.7s;animation-delay:-3.2s}',
-  '.palis-globe-dust.d3{animation-duration:5.3s;animation-delay:-1.6s}',
-  '@keyframes palis-dust-tw{0%,100%{opacity:.4}50%{opacity:.66}}',
+  /* v0.5.11 极简化：dither 噪点层与三层表面尘埃（d1/d2/d3 呼吸闪烁）退役——
+     不承载信息、与扫描线质感重复，且是全屏持续吸引注意力的"微噪"。 */
   /* 直角模式豁免：天体是具象图形而非 UI 铬件，必须保持圆形（同声纳环先例） */
   'html[data-palis-theme][data-palis-square="on"] .palis-globe-sphere{border-radius:50% !important}',
   'html[data-palis-artwork="off"] .palis-globe{display:none!important}',
@@ -944,16 +949,16 @@ export const PALIS_CSS = [
   /* ── ASCII 取景框层（client 注入 .palis-frame）：四角 L 形裁切标记 + 角落读数。
      档案终端的「取景器」语义：整页是一份被归档观测的记录 ── */
   '.palis-frame{position:fixed;inset:0;pointer-events:none;z-index:2147482300;font-family:var(--palis-font-mono,monospace)}',
-  '.palis-frame i{position:absolute;width:16px;height:16px;border:0 solid rgba(236,236,236,.30)}',
+  '.palis-frame i{position:absolute;width:16px;height:16px;border:0 solid var(--palis-w2)}',
   '.palis-frame i.tl{left:6px;top:6px;border-left-width:1px;border-top-width:1px}',
   '.palis-frame i.tr{right:6px;top:6px;border-right-width:1px;border-top-width:1px}',
   '.palis-frame i.bl{left:6px;bottom:6px;border-left-width:1px;border-bottom-width:1px}',
   '.palis-frame i.br{right:6px;bottom:6px;border-right-width:1px;border-bottom-width:1px}',
-  '.palis-frame span{position:absolute;font-size:8px;letter-spacing:.22em;color:rgba(236,236,236,.30);white-space:nowrap}',
+  '.palis-frame span{position:absolute;font-size:8px;letter-spacing:.22em;color:var(--palis-w2);white-space:nowrap}',
   '.palis-frame .tl-tag{left:28px;top:9px}',
   '.palis-frame .tr-tag{right:28px;top:9px}',
-  '.palis-frame .bl-read{left:10px;bottom:9px;color:rgba(111,156,255,.55)}',
-  '.palis-frame .br-tag{right:64px;bottom:52px;color:rgba(236,236,236,.22)}',
+  '.palis-frame .bl-read{left:10px;bottom:9px;color:var(--palis-accent)}',
+  '.palis-frame .br-tag{right:64px;bottom:52px;color:rgba(236,236,236,.30)}',
 
   '.palis-playhead{position:absolute;top:0;left:0;width:3px;height:7px;',
   'background:rgba(111,156,255,.95);z-index:1;pointer-events:none;will-change:transform}',
@@ -983,13 +988,13 @@ export const PALIS_CSS = [
   /* ── tmux 式底部状态栏（client 注入 .palis-statusbar）：品牌段/相位段/UTC/滚动深度/活动/版本 ── */
   '.palis-statusbar{position:fixed;left:0;right:0;bottom:0;height:22px;z-index:2147482350;',
   'display:flex;align-items:center;gap:0;background:rgba(10,10,10,.94);border-top:1px solid #2a2a2a;',
-  'font-family:var(--palis-font-mono,monospace);font-size:9px;letter-spacing:.2em;color:#767676;overflow:hidden}',
+  'font-family:var(--palis-font-mono,monospace);font-size:9px;letter-spacing:.2em;color:#8f8f8f;overflow:hidden}',
   '.palis-statusbar b{flex:none;background:#2b5fd9;color:#fff;padding:0 10px;letter-spacing:.24em;font-weight:600}',
   '.palis-statusbar span{flex:none;padding:0 12px;border-right:1px solid #222;white-space:nowrap}',
   '.palis-statusbar .sb-live{border-right:none;margin-left:auto;color:#8f8f8f}',
   '.palis-statusbar #palis-sb-sess{color:#7a97e8;max-width:180px;overflow:hidden;text-overflow:ellipsis}',
   '.palis-statusbar #palis-sb-model{color:#9c9c9c;max-width:140px;overflow:hidden;text-overflow:ellipsis}',
-  '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid #222;color:#5c5c5c}',
+  '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid #222;color:#6e6e6e}',
   '.palis-statusbar .sb-live::before{content:"○ IDLE"}',
   'html[data-palis-activity="on"] .palis-statusbar .sb-live::before{content:"● LIVE";color:#c8322b;animation:palis-rec-blink 1.6s steps(1) infinite}',
   'html[data-palis-activity="on"] .palis-statusbar .sb-brand{background:#c8322b}',
@@ -1057,45 +1062,26 @@ export const PALIS_CSS = [
      right 合并成过约束（LTR 下 left 胜）——迁向规则必须复位旧锚边 */
   '.palis-glyphs .pg-topo{position:absolute;left:auto;right:6.2%;top:68%;width:172px;height:172px;opacity:.55}',
   '.palis-glyphs .pg-topo svg{width:100%;height:100%}',
-  '.palis-glyphs .pg-topo-tag{position:absolute;left:auto;right:6.2%;top:calc(68% + 178px);font-size:8px;letter-spacing:.22em;color:rgba(236,236,236,.24);white-space:nowrap}',
+  '.palis-glyphs .pg-topo-tag{position:absolute;left:auto;right:6.2%;top:calc(68% + 178px);font-size:8px;letter-spacing:.22em;color:var(--palis-w3);white-space:nowrap}',
   /* ③ 测量十字：+ 形测点标 + 编号坐标微标签（星图测量语言） */
-  '.palis-glyphs .pg-cross{position:absolute;width:13px;height:13px;transform:translate(-50%,-50%)}',
-  '.palis-glyphs .pg-cross::before,.palis-glyphs .pg-cross::after{content:"";position:absolute;background:rgba(236,236,236,.34)}',
-  '.palis-glyphs .pg-cross::before{left:0;right:0;top:6px;height:1px}',
-  '.palis-glyphs .pg-cross::after{top:0;bottom:0;left:6px;width:1px}',
-  '.palis-glyphs .pg-cross span{position:absolute;left:17px;top:1px;font-size:8px;letter-spacing:.18em;color:rgba(236,236,236,.26);white-space:nowrap}',
+  /* v0.5.11 极简化：测量十字 + 固定假坐标（PT-01…PT-06）退役——占着 hero 中央留白，
+     且报的是编造的坐标（"假数据"比"纯装饰"更该先删）。 */
   /* ④ 右缘数据流：hex 列缓速上滚（transform 合成器动画；活动态提速一档，RM 静止）。
      上下端 mask 渐隐 = 胶片边缘码的入画/出画 */
   '.palis-edgestream{position:absolute;right:2px;top:26px;bottom:28px;width:20px;overflow:hidden;',
   '-webkit-mask:linear-gradient(180deg,transparent,#000 6% 94%,transparent);mask:linear-gradient(180deg,transparent,#000 6% 94%,transparent)}',
-  '.palis-edgestream i{display:block;font-style:normal;font-size:8px;line-height:14px;letter-spacing:.08em;text-align:center;color:rgba(127,168,255,.26);white-space:pre;animation:palis-edgestream 120s linear infinite}',
+  '.palis-edgestream i{display:block;font-style:normal;font-size:8px;line-height:14px;letter-spacing:.08em;text-align:center;color:rgba(127,168,255,.18);white-space:pre;animation:palis-edgestream 120s linear infinite}',
   'html[data-palis-activity="on"] .palis-edgestream i{animation-duration:42s}',
   '@keyframes palis-edgestream{from{transform:translateY(0)}to{transform:translateY(-50%)}}',
   '@media (prefers-reduced-motion:reduce){.palis-edgestream i{animation:none}}',
   /* ⑤ 错位图版：实心面 + 描边面套版偏移（印刷套准语义）+ 45° 剖面纹带。
      「面」构成——平衡全层的点/线/粒子；纯静态（平面设计类元素，不抢动效通道） */
-  '.palis-glyphs .pg-plate{position:absolute;right:4%;top:20%;width:150px;height:104px}',
-  '.palis-glyphs .pg-plate .a{position:absolute;right:28px;top:0;width:96px;height:58px;background:rgba(143,168,216,.07)}',
-  '.palis-glyphs .pg-plate .b{position:absolute;right:0;top:24px;width:96px;height:58px;border:1px solid rgba(236,236,236,.13)}',
-  '.palis-glyphs .pg-plate .h{position:absolute;right:28px;top:68px;width:62px;height:9px;background:repeating-linear-gradient(-45deg,rgba(236,236,236,.20) 0 1px,transparent 1px 5px)}',
-  '.palis-glyphs .pg-plate span{position:absolute;right:0;top:90px;font-size:8px;letter-spacing:.2em;color:rgba(236,236,236,.26);white-space:nowrap}',
+  /* v0.5.11 极简化：错位图版（PL.09A // COMP.04）退役——一块不带信息的"面构成"，
+     在极简语汇里只增加视觉噪点。 */
   /* ⑥ 单色色卡阶梯：6 灰阶递进 + 1 暖橙 accent（呼应星尘暖橙点缀）；
      v0.4.8 右迁贴右 gutter（月球锚左，原位压盘）；标签竖排置色条右侧 */
-  '.palis-glyphs .pg-swatch{position:absolute;left:auto;right:2.4%;top:78%;width:26px}',
-  '.palis-glyphs .pg-swatch b{display:block;width:14px;height:9px;margin-bottom:3px;background:rgba(236,236,236,.04)}',
-  '.palis-glyphs .pg-swatch b:nth-child(2){background:rgba(236,236,236,.065)}',
-  '.palis-glyphs .pg-swatch b:nth-child(3){background:rgba(236,236,236,.09)}',
-  '.palis-glyphs .pg-swatch b:nth-child(4){background:rgba(236,236,236,.115)}',
-  '.palis-glyphs .pg-swatch b:nth-child(5){background:rgba(236,236,236,.14)}',
-  '.palis-glyphs .pg-swatch b:nth-child(6){background:rgba(236,236,236,.17)}',
-  '.palis-glyphs .pg-swatch b:nth-child(7){background:rgba(232,168,159,.40);margin-bottom:0}',
-  '.palis-glyphs .pg-swatch span{position:absolute;left:19px;top:0;writing-mode:vertical-rl;text-orientation:upright;font-size:8px;letter-spacing:.14em;color:rgba(236,236,236,.26);white-space:nowrap}',
-  /* ⑦ 栏栅格碎片：repeating-gradient 一次画全组参考线（6 竖 + 2 横），网格只露一角 */
-  '.palis-glyphs .pg-grid{position:absolute;left:47%;top:15%;width:97px;height:65px}',
-  '.palis-glyphs .pg-grid i{position:absolute;inset:0;display:block}',
-  '.palis-glyphs .pg-grid .c{background:repeating-linear-gradient(90deg,rgba(236,236,236,.10) 0 1px,transparent 1px 16px)}',
-  '.palis-glyphs .pg-grid .r{background:repeating-linear-gradient(0deg,rgba(236,236,236,.08) 0 1px,transparent 1px 32px)}',
-  '.palis-glyphs .pg-grid span{position:absolute;left:0;top:71px;font-size:8px;letter-spacing:.2em;color:rgba(236,236,236,.26);white-space:nowrap}',
+  /* v0.5.11 极简化：色卡阶梯（SW.07+1）与栏栅格碎片（GRID // 6×2）退役——
+     前者是"设计系统色卡"，后者是"版式参考线"，都属于不承载工作信息的装饰。 */
   /* ⓪ 平面月盘（v0.4.9）：开机舷窗同款 ART_MOON_MAP 平涂月面（2:1 贴图等高铺满圆窗，
      横移回绕 = 经度无缝公转，专用 palis-fm-pan 关键帧），右锚半露——
      粒子月球锚左（点云）/ 平面月盘锚右（版画），双月对望的构成对位。
@@ -1120,7 +1106,7 @@ export const PALIS_CSS = [
   '.palis-glyphs .pg-flatmoon .fm-disc::after{content:"";position:absolute;inset:0;border-radius:50%;',
   'background:radial-gradient(circle at 40% 42%,rgba(5,6,8,0) 42%,rgba(5,6,8,.34) 74%,rgba(5,6,8,.62));',
   'box-shadow:inset 0 0 70px rgba(0,0,0,.45)}',
-  '.palis-glyphs .pg-flatmoon .fm-strip{position:absolute;left:0;top:0;height:100%;width:400%;',
+  '.palis-glyphs .pg-flatmoon .fm-strip{position:absolute;left:0;top:0;height:100%;width:400%;opacity:var(--palis-moon-lift);',
   'opacity:.55;animation:palis-fm-pan 140s linear infinite}',
   '.palis-glyphs .pg-flatmoon .fm-strip img{position:absolute;left:0;top:0;height:100%;width:50%;max-width:none}',
   '.palis-glyphs .pg-flatmoon .fm-strip img+img{left:50%}',

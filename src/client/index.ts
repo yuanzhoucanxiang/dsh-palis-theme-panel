@@ -212,28 +212,9 @@ function buildGlobe(): HTMLDivElement {
   sphere.className = 'palis-globe-sphere'
   const canvas = document.createElement('canvas')
   canvas.className = 'palis-globe-canvas'
-  const dither = document.createElement('div')
-  dither.className = 'palis-globe-dither'
-  // 表面粒子尘埃：三层异相闪烁（单元素 box-shadow 列表，低成本）；d3 是蓝色火花
-  const mkDust = (cls: string, n: number, accent: boolean): HTMLDivElement => {
-    const el = document.createElement('div')
-    el.className = 'palis-globe-dust ' + cls
-    const dots: string[] = []
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2
-      const r = Math.sqrt(Math.random()) * 400
-      const x = 450 + Math.cos(a) * r
-      const y = 450 + Math.sin(a) * r
-      const s = (Math.random() * 1.6 + 0.4).toFixed(1)
-      const alpha = (Math.random() * 0.26 + 0.12).toFixed(2)
-      dots.push(accent
-        ? `${x.toFixed(0)}px ${y.toFixed(0)}px 0 ${s}px rgba(127,168,255,${alpha})`
-        : `${x.toFixed(0)}px ${y.toFixed(0)}px 0 ${s}px rgba(226,236,246,${alpha})`)
-    }
-    el.style.boxShadow = dots.join(',')
-    return el
-  }
-  sphere.append(canvas, dither, mkDust('d1', 16, false), mkDust('d2', 12, false), mkDust('d3', 5, true))
+  // v0.5.11 极简化：删除 dither 噪点层与三层表面尘埃（d1/d2/d3 的异相闪烁）——
+  // 它们不承载信息、只是持续吸引注意力的"微噪"，且与扫描线/噪点在质感上重复。
+  sphere.append(canvas)
   // v0.5.0：HUD 几何层/卫星轨道/live 读数/铭牌全部退役——月球迁入声纳轨道系中心
   // （星系圆心定位见 layoutGlobe），仪器语言由声纳环系接管，铭牌迁平面月盘。
   root.append(sphere)
@@ -753,46 +734,16 @@ function buildGlyphs(): HTMLDivElement {
   const topoTag = document.createElement('span')
   topoTag.className = 'pg-topo-tag'
   topoTag.textContent = 'TERRAIN // REL 240M'
-  // ③ 测量十字 + 编号坐标微标签（星图测点语言；位置按宿主流体 %，均落空区。
-  //    v0.4.8：PT-01/02 原左侧两位会压月盘（月球锚左半露）——右移到 24% 列）
-  const CROSSES: Array<[string, string, string]> = [
-    ['24%', '13%', 'PT-01 · 054.23N'],
-    ['24%', '68%', 'PT-02 · 112.80E'],
-    ['33%', '6%', 'PT-03 · 038.77N'],
-    ['58%', '9%', 'PT-04 · 009.14E'],
-    ['87%', '13%', 'PT-05 · SEC.09A'],
-    ['90%', '57%', 'PT-06 · MER.014'],
-  ]
-  const crosses = CROSSES.map(([x, y, label]) => {
-    const u = document.createElement('u')
-    u.className = 'pg-cross'
-    u.style.left = x
-    u.style.top = y
-    const s = document.createElement('span')
-    s.textContent = label
-    u.appendChild(s)
-    return u
-  })
-  // ④ 右缘 hex 数据流（胶片边缘码语义）
+  // 右缘 hex 数据流（胶片边缘码语义）
   const stream = document.createElement('div')
   stream.className = 'palis-edgestream'
   const lane = document.createElement('i')
   lane.textContent = edgeStreamText()
   stream.appendChild(lane)
-  // ⑤ 错位图版（平面「面」构成，对全层的点/线）：实心面 + 描边面套版偏移 + 剖面纹带
-  const plate = document.createElement('div')
-  plate.className = 'pg-plate'
-  plate.innerHTML = "<b class='a'></b><b class='b'></b><b class='h'></b><span>PL.09A // COMP.04</span>"
-  // ⑥ 单色色卡阶梯（设计系统 swatch 语义）：6 灰阶递进 + 1 暖橙 accent 收尾；
-  //    标签竖排置色条右侧（横排标签 92px 宽，1920 下会撞等高线地形块）
-  const swatch = document.createElement('div')
-  swatch.className = 'pg-swatch'
-  swatch.innerHTML = '<b></b><b></b><b></b><b></b><b></b><b></b><b></b><span>SW.07+1</span>'
-  // ⑦ 栏栅格碎片（版式参考线语义）：6 竖 + 2 横，网格只露一角（repeating-gradient 一次成组）
-  const grid = document.createElement('div')
-  grid.className = 'pg-grid'
-  grid.innerHTML = "<i class='c'></i><i class='r'></i><span>GRID // 6×2</span>"
-  root.append(flatmoon, topo, topoTag, ...crosses, stream, plate, swatch, grid)
+  // v0.5.11 极简化：删除 6 组测量十字（PT-01…PT-06 固定假坐标）、色卡阶梯（SW.07+1）、
+  // 栏栅格碎片、错位图版（PL.09A // COMP.04）——它们都是"不承载信息的装饰"，
+  // 且占着 hero 中央的留白。保留等高线地形（降权到环境层）与右缘数据流。
+  root.append(flatmoon, topo, topoTag, stream)
   return root
 }
 
@@ -1530,25 +1481,14 @@ function ensureSonar(): void {
      中心天体位（用户构图指令：月球对那圆点进行替换）；
      v0.5.1：g1（r=96）同退——盘面半径 0.15·S 已覆过 r=96，环弧会横穿月面 */
   sonarRings = [
-    ring('', 0.3915, 0.16, 0.19, 0.53, 0, 2.1), // 蓝环 r=184
+    ring('', 0.3915, 0.16, 0.19, 0.53, 0, 2.1), // 蓝环 r=184（身份环，唯一强调色）
     ring('g3', 0.7404, 0.08, 0.12, 0.37, 5.2, 3.3), // 灰环 r=348
-    ring('g4', 0.9149, 0.06, 0.1, 0.31, 0.8, 5.7), // 灰环 r=430（最外圈也转）
-    ring('g2', 0.5617, -0.1, 0.15, 0.41, 3.9, 1.8), // 灰环 r=264
+    // v0.5.11 极简化：g4（r=430）与 g2（r=264）退役——四条错相旋转环密集且互相干扰，
+    // 保留"一蓝一灰"两级已够表达轨道系（后续若做密度档位可在此按档补回）。
   ]
-  const WO = (2 * Math.PI) / 240 // 外环带公转基速：静默 4 分钟/圈
-  const planet = (cls: string, ratio: number, angle: number, speed: number): SonarPlanet => {
-    const el = document.createElement('u')
-    if (cls !== '') el.className = cls
-    return { el, ratio, angle, speed }
-  }
-  /* 初相 = 原 SVG 节点角位（正交 4 颗巡 r=430、对角 4 颗巡 r=294）；内环按 (r外/r内)^1.5 提速 */
-  sonarPlanets = [
-    planet('', 0.43, -Math.PI / 2, WO), planet('', 0.43, 0, WO),
-    planet('', 0.43, Math.PI / 2, WO), planet('', 0.43, Math.PI, WO),
-    planet('d', 0.29416, -Math.PI / 4, WO * 1.77), planet('d', 0.29416, (-3 * Math.PI) / 4, WO * 1.77),
-    planet('d', 0.29416, Math.PI / 4, WO * 1.77), planet('d', 0.29416, (3 * Math.PI) / 4, WO * 1.77),
-    planet('a', 0.184, 0.9, WO * 3.58), // 蓝环 accent 卫星
-  ]
+  /* v0.5.11 极简化：公转行星点全部删除（5 颗）——它们在极简语汇里是"玩具感"来源，
+     且与 ping 环/旋转环承担同一件事（表达活动）。保留环系即可。 */
+  sonarPlanets = []
   // 方位度数标记：000 上 / 090 右 / 180 下 / 270 左（仪表语言；<n> 元素，
   // 不占 <i>/<s>/<u> 的既有选择器序位）
   sonarDegs = ([
@@ -1559,9 +1499,10 @@ function ensureSonar(): void {
     return { el, dx, dy }
   })
   // ping 扩散环 ×3：v0.5.7 起由 orbitFrame 逐帧驱动（尺寸/透明度全在 JS 侧，CSS 只给基态）
-  sonarPings = [document.createElement('i'), document.createElement('i'), document.createElement('i')]
-  pingOpacities = [0, 0, 0]
-  pingBaseDs = [760, 760, 760]
+  // v0.5.11 极简化：ping 扩散环 ×3 → ×1（单环呼吸已足够表达"活动"，三环错相是密集语汇）
+  sonarPings = [document.createElement('i')]
+  pingOpacities = [0]
+  pingBaseDs = [760]
   sonarEl.append(
     ...sonarPings,
     ...sonarRings.map((r) => r.el),

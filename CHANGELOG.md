@@ -1,3 +1,24 @@
+## 0.5.8 — 2026-09-10
+
+输入区双写：同一份主题在 0.1.1 与 0.1.5 内核下都生效——主题与内核版本解耦，可独立发布。
+
+**背景**
+- 内核 0.1.5 把输入区从 `<textarea>` 重构成 `div[contenteditable][role=textbox]`；
+  实时 DOM 实测（Hermetic 起内核 + headless Chrome 取锚点清单，新旧两代对比）确认映射：
+  `data-input-backdrop → data-composer-input`、`data-input-mirror → data-composer-placeholder`、
+  `[data-composer-seat] textarea → [data-composer-input]`。
+
+**改动**
+- `theme-core.ts`：写作区/占位/聚焦三条规则并列新旧两代选择器。只改新选择器会让 0.1.1 上的
+  输入框立刻失去主题化（版本绑定）；双写则两边都成立，因此这次改动不必与内核升级同步。
+
+**验证**
+- `render.composer-theme` 探针（dsh-desktop `verify:render` 新增）：0.1.1 命中
+  `[data-composer-seat] textarea`、0.1.5 命中 `[data-composer-input]`，两者写作区底色均为
+  PALIS 黑 `rgb(10,10,10)`、字体均为 JetBrains Mono。
+- 契约 `theme.dom-anchors` 改为 either/or 语义（双写组任一存在即通过）：两代内核各跑一遍
+  均 12 项全命中；渲染不变量四项全绿。
+
 ## 0.5.7 — 2026-09-09
 
 声纳 ping 环变形修复：扩散环从 CSS `transform:scale` 关键帧动画改为 JS 逐帧写 `width/height/margin/opacity`——圆形动效零合成层的最后一块拼图（v0.5.5 月盘同法典）。

@@ -1979,3 +1979,19 @@ v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「�
   ——更新前先打招呼。
 
 — 署名：kimi（2026-09-09）
+
+## 60. 输入区双写：主题与内核版本解耦（2026-09-10）
+
+- **背景**：官方内核 latest 已到 0.1.5-rc.1（我们钉 0.1.1-rc.1）。契约验收（dsh-desktop
+  contracts/kernel-surface.json + verify:kernel --runtime）在候选内核上实测出输入区重构：
+  textarea → div[contenteditable][role=textbox]，锚点 data-input-backdrop → data-composer-input、
+  data-input-mirror → data-composer-placeholder（用 Hermetic 起内核 + headless Chrome 取实时
+  DOM 锚点清单，新旧两代对比得出，不是猜的）。
+- **做法**：三条规则并列新旧两代选择器（双写）。只改新选择器会让 0.1.1 用户立刻失去输入框
+  主题化（版本绑定改动）；双写后同一份主题在两代内核下都生效，可独立发布，不必与内核升级同步。
+- **验证**：新增探针 render.composer-theme 在两代内核上均命中（底色 rgb(10,10,10)、
+  JetBrains Mono）；契约锚点行改 either/or 语义后两侧各 12 项全命中；渲染不变量四项全绿。
+- 顺带发现：0.1.5 上开机自检舷窗（.pb-port）看着我方截图疑似圆角方（非正圆），待内核侧
+  合成层排查（本轮未定性，记此备查）。
+
+署名：ox-alpha

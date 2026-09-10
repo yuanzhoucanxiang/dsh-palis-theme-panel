@@ -629,6 +629,14 @@ export const PALIS_CSS = [
      另两条硬规则：强调蓝只用于身份与当前态；红只留给真实错误（不当装饰色用）。 ── */
   '--palis-w1:rgba(236,236,236,.92);--palis-w2:rgba(236,236,236,.44);--palis-w3:rgba(236,236,236,.16);',
   '--palis-accent:rgba(111,156,255,.62);--palis-danger:rgba(200,50,43,.92);',
+  /* ── 边框语言（v0.5.13）：此前灰线有 #2a2a2a/#333/.14/.22 四档、强调蓝两档，各写各的。
+     收敛成四种语义，边框一律 1px + 直角（不使用阴影；深度靠"内嵌细线"而非投影）：
+     frame  外框 / 登记线（与 W2 同档，唯一"实"的线）
+     div    分区线（暗、安静——把区域分开但不抢读）
+     inset  内嵌细线（给面板深度；双线 L 的里层就是它）
+     accent 活动/焦点线（蓝只用于此，与 W1 的信息层呼应） ── */
+  '--palis-line-frame:rgba(236,236,236,.44);--palis-line-div:#242424;',
+  '--palis-line-inset:rgba(236,236,236,.10);--palis-line-accent:rgba(43,95,217,.55);',
   '--palis-moon-lift:.86;',
   'transition:--palis-scan-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-noise-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out),--palis-vignette-alpha var(--ds-transition-duration-slow) var(--ds-ease-in-out);',
   '}',
@@ -804,6 +812,9 @@ export const PALIS_CSS = [
   'html[data-palis-theme] [data-composer-card]{',
   'background:linear-gradient(180deg,rgba(43,95,217,.045),transparent 90px),#0d0d0d;',
   'border:1px solid var(--palis-border);border-top:2px solid var(--palis-accent);',
+  /* 内嵌细线（v0.5.13）：外框里再收 1px 的暗线——双层边读作"窗口"，
+     深度靠内嵌而不是投影（主题全程不用阴影） */
+  'box-shadow:inset 0 0 0 1px var(--palis-line-inset);',
   '}',
   'html[data-palis-theme] [data-input-backdrop]{background:#0a0a0a}',
   /* 输入区双写：0.1.5 起内核把输入区从 textarea 重构成
@@ -878,7 +889,7 @@ export const PALIS_CSS = [
   /* v0.5.7：@keyframes palis-sonar-ping 退役——改 JS 逐帧驱动（见 client/index.ts sonarPings） */
   /* 会话顶部（hero）→ Win95 标题条 */
   'html[data-palis-theme] [data-slot="conversation.hero.agentPreset"] > *{',
-  'background:linear-gradient(180deg,#1c1c1c,#101010);border-bottom:1px solid var(--palis-border);',
+  'background:linear-gradient(180deg,#1c1c1c,#101010);border-bottom:1px solid var(--palis-line-div);',
   '}',
   /* 辉光（标题与品牌文字）；transition 挂全量标题选择器——on/off 切换时辉光渐显渐隐 */
   'html[data-palis-theme] h1,html[data-palis-theme] h2,html[data-palis-theme] h3{',
@@ -898,7 +909,7 @@ export const PALIS_CSS = [
   '.palis-globe{position:absolute;left:0;top:0;width:1100px;height:1100px;transform-origin:0 0;',
   'pointer-events:none;z-index:-1;will-change:transform}',
   '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
-  'border:1px solid rgba(236,236,236,.12);',
+  'border:1px solid var(--palis-line-inset);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
   /* v0.5.11 极简化：dither 噪点层与三层表面尘埃（d1/d2/d3 呼吸闪烁）退役——
@@ -951,11 +962,18 @@ export const PALIS_CSS = [
   /* ── ASCII 取景框层（client 注入 .palis-frame）：四角 L 形裁切标记 + 角落读数。
      档案终端的「取景器」语义：整页是一份被归档观测的记录 ── */
   '.palis-frame{position:fixed;inset:0;pointer-events:none;z-index:2147482300;font-family:var(--palis-font-mono,monospace)}',
-  '.palis-frame i{position:absolute;width:16px;height:16px;border:0 solid var(--palis-w2)}',
+  '.palis-frame i{position:absolute;width:16px;height:16px;border:0 solid var(--palis-line-frame)}',
+  /* 四角登记标记（v0.5.13）：外实线 + 内嵌细线（inset 3px 的双线 L）——
+     取景器/套准标记的做法：靠"双层"表达精密，而不是把线加粗。 */
+  '.palis-frame i::after{content:"";position:absolute;inset:3px;border:0 solid var(--palis-line-inset)}',
   '.palis-frame i.tl{left:6px;top:6px;border-left-width:1px;border-top-width:1px}',
   '.palis-frame i.tr{right:6px;top:6px;border-right-width:1px;border-top-width:1px}',
   '.palis-frame i.bl{left:6px;bottom:6px;border-left-width:1px;border-bottom-width:1px}',
   '.palis-frame i.br{right:6px;bottom:6px;border-right-width:1px;border-bottom-width:1px}',
+  '.palis-frame i.tl::after{border-left-width:1px;border-top-width:1px}',
+  '.palis-frame i.tr::after{border-right-width:1px;border-top-width:1px}',
+  '.palis-frame i.bl::after{border-left-width:1px;border-bottom-width:1px}',
+  '.palis-frame i.br::after{border-right-width:1px;border-bottom-width:1px}',
   '.palis-frame span{position:absolute;font-size:8px;letter-spacing:.22em;color:var(--palis-w2);white-space:nowrap}',
   '.palis-frame .tl-tag{left:28px;top:9px}',
   '.palis-frame .tr-tag{right:28px;top:9px}',
@@ -989,14 +1007,14 @@ export const PALIS_CSS = [
 
   /* ── tmux 式底部状态栏（client 注入 .palis-statusbar）：品牌段/相位段/UTC/滚动深度/活动/版本 ── */
   '.palis-statusbar{position:fixed;left:0;right:0;bottom:0;height:22px;z-index:2147482350;',
-  'display:flex;align-items:center;gap:0;background:rgba(10,10,10,.94);border-top:1px solid #2a2a2a;',
+  'display:flex;align-items:center;gap:0;background:rgba(10,10,10,.94);border-top:1px solid var(--palis-line-div);',
   'font-family:var(--palis-font-mono,monospace);font-size:9px;letter-spacing:.2em;color:#8f8f8f;overflow:hidden}',
   '.palis-statusbar b{flex:none;background:#2b5fd9;color:#fff;padding:0 10px;letter-spacing:.24em;font-weight:600}',
-  '.palis-statusbar span{flex:none;padding:0 12px;border-right:1px solid #222;white-space:nowrap}',
+  '.palis-statusbar span{flex:none;padding:0 12px;border-right:1px solid var(--palis-line-div);white-space:nowrap}',
   '.palis-statusbar .sb-live{border-right:none;margin-left:auto;color:#8f8f8f}',
   '.palis-statusbar #palis-sb-sess{color:#7a97e8;max-width:180px;overflow:hidden;text-overflow:ellipsis}',
   '.palis-statusbar #palis-sb-model{color:#9c9c9c;max-width:140px;overflow:hidden;text-overflow:ellipsis}',
-  '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid #222;color:#6e6e6e}',
+  '.palis-statusbar .sb-ver{border-right:none;border-left:1px solid var(--palis-line-div);color:#6e6e6e}',
   '.palis-statusbar .sb-live::before{content:"○ IDLE"}',
   'html[data-palis-activity="on"] .palis-statusbar .sb-live::before{content:"● LIVE";color:#c8322b;animation:palis-rec-blink 1.6s steps(1) infinite}',
   'html[data-palis-activity="on"] .palis-statusbar .sb-brand{background:#c8322b}',

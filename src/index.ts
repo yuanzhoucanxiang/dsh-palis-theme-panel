@@ -13,7 +13,7 @@
  */
 import type { Context } from 'cordis'
 import z from 'schemastery'
-import { SettingsConflictError, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import {
   API_ROUTE,
   bootScriptOf,
@@ -84,7 +84,8 @@ export function apply(ctx: Context): void {
   // ── 设置命名空间（可选服务：缺席时下面 API 回退默认值）──────────────────
   c.inject(['settings'], (sctxRaw: any) => {
     const sctx = sctxRaw as any
-    const ns = settingsNamespace(SETTINGS_NS)
+    // 0.1.2：settingsNamespace() 帮助函数已删，命名空间直接用小写连字符字符串。
+    const ns = SETTINGS_NS
     sctx.settings.register(ns, ThemeSettingsSchema)
     const view = (): { value?: unknown; revision?: number } => {
       const descriptor = sctx.settings.describe({ redactSecrets: true }).find((candidate: any) => candidate.ns === ns)

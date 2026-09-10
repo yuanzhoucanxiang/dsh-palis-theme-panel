@@ -1,3 +1,57 @@
+## 0.5.7 — 2026-09-09
+
+声纳 ping 环变形修复：扩散环从 CSS `transform:scale` 关键帧动画改为 JS 逐帧写 `width/height/margin/opacity`——圆形动效零合成层的最后一块拼图（v0.5.5 月盘同法典）。
+
+**根因**
+- 用户报「月盘依旧不圆，声纳波纹也不圆」，但对当前截图逐像素测量：月盘轮廓、r=430 点环、蓝色虚线环、月坑、粒子云全部几何正圆——静态渲染已健康，残留的是**动态观感**。
+- 全主题里唯一还在用合成层 transform 做圆形缩放的元素 = ping 环（`palis-sonar-ping` 的 `scale(.05→1)`）。分数 DPR（用户机 2.73）下合成层位图逐帧缩放，周向采样不均，运动中读作"不圆"。
+
+**改动**
+- `theme-core.ts`：`.palis-sonar i` 删除 `transform:scale(.05)` 与 `animation:palis-sonar-ping`（含错相 delay 与活动态 duration 规则），`@keyframes palis-sonar-ping` 退役；CSS 只留基态尺寸与描边（活动态描边提亮保留）。
+- `client/index.ts`：新增 `PING_EASE`（cubic-bezier(.17,.67,.35,1) 二分求解器）；`orbitFrame` 逐帧驱动三环——展开曲线、1/3 周期错相、透明度包络（0→pk@9%→0.4·pk@62%→0）、活动态变速（6.4s/.42 ↔ 4s/.60）全部与原 keyframes 同参复刻。
+- ping 重尺寸机制（§25 阈值门 + 冻结窗 + v0.5.3 不可见窗口落笔）保留，落笔对象从元素样式改为 `pingBaseDs[j]` 基准径数字（三环错相下不存在全环同隐窗口，故各环持有自己的基准径，各自等自己的不可见窗口换径）。
+
+**验证**
+- 测试内核 + Electron 探针（桌面版同二进制）：三环宽度构造上恒等（width≡height）、逐帧 opacity 包络与原 keyframes 一致、重尺寸仍落在 opacity≤0.02 窗口。
+- 回归全绿：verify-flat / verify-craters / verify-glyphs / verify-ping-invisible。
+
+**交付注记**
+- 宿主内联 CSS 只在内核启动时读盘——**改版后必须重启应用**（§57 经验），Page.reload 会造成新旧两套 CSS 混合态。
+
+## 0.5.6 — 2026-09-09
+
+月盘变形硬化：移除 `.pg-flatmoon` 容器的静态 `transform:translate(50%,-50%)`——静态 transform 同样把整棵月盘子树提升为合成层，是分数 DPR 下残留的最后一个光栅化错位风险源。改用无 transform 等价定位（`right:calc(min(880px,46vw)/-2)` + `margin-top` 负半程），位置像素级不变（盘心压宿主右缘、垂直居中，探针实测偏差 <1px）。至此月盘栈零 transform、零合成层，此类变形在构造上不可能再发生。
+
+**排查附记**
+- 用户回报「仍然有变形」时实例链路核查：内核按进程随机 nonce 生成 per-plugin rev、combo rev 为内容哈希（`framedHash("combo",[bytes,map])`）——重启即换 URL，理论上无陈旧代码路径；内核 `dsh-client-modules` 的 `rebuilt()`（HMR watch）是运行期唯一换 rev 的入口，宿主内联 CSS 只在内核启动时读取，**改版后必须重启内核/应用**，Page.reload 只能刷新 client.js 一侧（会造成新旧两套 CSS 并存的混合态）。
+- 实测矩阵（均正圆）：活窗口真 GPU DPR 2.73 / 活窗口模拟 1.75 / 无头 2.73 / 无头 1.75。
+
+**验证**
+- 活窗口：容器 `transform:none`、`right=-323.685px`、`marginTop=-323.685px`、647.4×647.4 正圆、盘心压右缘、垂直居中。
+- 回归全绿：verify-flat / verify-craters / verify-glyphs。
+
+## 0.5.5 — 2026-09-08
+
+月盘变形修复：月面公转从 transform 合成层动画改为 left 属性动画——分数 DPR>2（如 2.73）下合成器光栅化错位把月盘横向拉伸 ~1.2×（月坑变椭圆、盘缘变直线）。
+
+**改动**
+- 根因（无头 Chrome DPR 2.73 复现 + 活页面 A/B 实锤，非猜）：DOM 层 `.pg-flatmoon` 647.4×647.4 正圆、祖先链零变形 transform——CSS 无错，变形发生在合成器。注入 `.fm-strip{animation:none}` 月盘立刻恢复正圆 → 罪魁 = `palis-boot-pan` 的 `translateX` 关键帧产生的合成层，在分数 DPR>2 下被光栅化/合成错位。
+- 修法：位移改 `left` 属性动画（主线程 layout 驱动，不产生合成层），各 DPR 几何一致。两处共用关键帧位移量不同（pb-moon 200% 宽需 -100% 容器，fm-strip 400% 宽需 -200% 容器）→ 拆分：`palis-boot-pan` 本体改 `{left:0→-100%}`，fm-strip 独立新关键帧 `palis-fm-pan{left:0→-200%}`（140s 不变）。RM 分支不受影响。
+- 探针同步：`verify-flat.mjs` 的 fmAnim 断言更新为 `palis-fm-pan`。
+- 新增复现/对照脚本：`verify-moon-ab.mjs`（DPR 2.73 无头 A/B 截图）。
+
+**验证**
+- 无头 DPR 2.73 复验：月盘/月坑正圆、盘缘平滑弧线（对照修复前 `ab-anim.png` 的椭圆坑+直线盘缘）。
+- 桌面端活窗口（DPR 2.73）CDP 刷新后实测：`anim=palis-fm-pan`、`stripTransform=none`、647.4×647.4 正圆、截图目检月坑正圆。
+- 回归全绿：verify-flat / verify-craters / verify-glyphs。
+
+## 0.5.4 — 2026-09-08
+
+内核 0.1.2-rc.1 兼容：适配 `dsh-settings` 删除的 `settingsNamespace()`（命名空间直传字符串）；老内核同样兼容。验证：0.1.2 预览内核全套回归 7/7 绿 + 截图目检。
+
+**改动**
+- `src/index.ts`：删 `settingsNamespace` 导入，`ns` 直接用 `SETTINGS_NS`。
+
 ## 0.5.3 — 2026-09-03
 
 闪烁收尾：ping 环重尺寸排队到各环不可见窗口落笔——侧栏/面板切换的残留闪源根除。

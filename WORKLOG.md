@@ -1789,3 +1789,193 @@ v0.4.4 交付后用户即报侧栏收放时背景频闪。`verify-flicker-mech.m
   （opacity≈0 窗口），而不是寄望于落笔时刻碰巧不可见。
 
 — 署名：ox-alpha（2026-09-03）
+
+## 55. v0.5.4 内核 0.1.2-rc.1 适配：settingsNamespace 退役（2026-09-08，用户「直接安装新内核，并对其进行桌面端的更新适配」）
+
+### 55.1 断点
+0.1.2 删了 `@deepseek-ai/dsh-settings` 的 `settingsNamespace()` 帮助函数，
+`lib/index.js` import 即抛 → 插件加载失败 → 整个主题缺席（设置 API 503、
+index-inject 不注入、页面回落官方主题）。其余 settings 面
+（register/describe/update/SettingsConflictError）签名未动——
+0.1.2 命名空间直接收小写连字符字符串，`SETTINGS_NS = 'palis-theme'` 天然合法。
+
+### 55.2 修法
+`src/index.ts` 两行：删 `settingsNamespace` 导入；
+`const ns = settingsNamespace(SETTINGS_NS)` → `const ns = SETTINGS_NS`。
+改动对老内核同样合法（register 本就收字符串），无前向分支。
+
+### 55.3 0.1.2 附带变化核验
+- Web 启用一次性 token 鉴权（启动行 `dsh web: <url?token=…>` → 303 + 签名
+  cookie）。主题面板的 `/palis-theme/api` 走 webServer 直连（不经 connection
+  /api 网关），不受影响；verify 探针改为带 token URL 导航即可（303 自动
+  置 cookie）。桌面外壳侧的就绪探测/loadURL//api 调用适配见
+  dsh-desktop 日志〔102〕。
+- 「会话视图工程大幅拆分 + 会话流默认折叠」未冲垮主题契约：预览内核
+  全套回归 7/7 绿（glyphs / craters / flat / flicker-mech / moon-teleport /
+  panel-switch / ping-invisible），2560×1400 截图目检正常。
+
+### 55.4 经验
+- 插件对内核 API 的依赖面越小，跨代越稳——本次断点只有一处，因为设置面
+  自始至终只用 register/describe/update 三件套。
+- 外壳按 runtime-marker 对账重解包：手换 runtime 目录会被下次启动覆盖，
+  正路是换 resources/runtime.tar.gz + marker（详见 dsh-desktop 日志〔102〕）。
+
+— 署名：kimi（2026-09-08）
+
+## 56. v0.5.5 月盘变形：分数 DPR 下 transform 合成层光栅化错位（2026-09-08，用户「右侧的月球还是变形」）
+
+### 56.1 现象
+桌面端右侧平面月盘（flatmoon）横向拉伸：月坑变椭圆、盘左缘压成直线。
+用户机器 Electron 窗口 DPR=2.73（3840×2160 物理、非整数缩放；以页面
+`devicePixelRatio` 为准，PowerShell 系统级 API 报的 175% 与每监视器值不一致）。
+
+### 56.2 排查（结论先行：CSS 层无错，变形在合成器）
+- DOM 实测：`.pg-flatmoon` 647.4×647.4 正圆、`aspect-ratio:1/1` 生效、
+  祖先链零变形 transform——几何数据源完全正确。
+- 无头 Chrome `Emulation.setDeviceMetricsOverride{1407×746, deviceScaleFactor:2.73}`
+  复现出完全一致的变形 → 与 Electron 无关，是 Chromium 合成器在分数 DPR>2
+  下的通用问题。
+- A/B 实锤（`verify-moon-ab.mjs`）：向活页面注入
+  `.fm-strip{animation:none!important;transform:none!important}` 后月盘立刻
+  恢复正圆、月坑变圆 → 罪魁 = `.fm-strip` 的 `animation:palis-boot-pan`
+  （`translateX` 关键帧）产生的**合成层**被光栅化/合成错位，横向拉伸 ~1.2×。
+- 对照证据：`ab-anim.png`（变形）vs `ab-noanim.png`（正圆）。
+
+### 56.3 修法
+位移从 `transform:translateX`（合成层）改成 `left` 属性动画（主线程 layout
+驱动，不产生合成层），位移量数学保持等价：
+- `@keyframes palis-boot-pan` 本体改 `{from{left:0}to{left:-100%}}`
+  （pb-moon 宽 200%，-100% 容器 = 旧 -50% 自身）；
+- fm-strip 宽 400% 需 -200% 容器位移，与 pb-moon 不同 → 独立新关键帧
+  `palis-fm-pan{from{left:0}to{left:-200%}}`（140s 周期不变，无缝回绕逻辑不变）。
+- RM（prefers-reduced-motion）分支本就 `animation:none`，不用动。
+
+### 56.4 验证
+- 无头 DPR 2.73 复验：月盘/月坑正圆、盘缘平滑弧线。
+- 桌面端活窗口（CDP `Page.reload{ignoreCache}` 刷新后）实测：
+  `anim=palis-fm-pan`、`stripTransform=none`、647.4×647.4、截图月坑正圆。
+- 回归全绿：verify-flat（fmAnim 断言同步更新）/ verify-craters / verify-glyphs。
+
+### 56.5 经验
+- **分数 DPR>2 下，任何「圆形容器 + transform 动画子层」组合都有被合成器
+  拉扁的风险**。排查变形先查合成层（动画 transform / will-change），
+  不要在 DOM/CSS 几何上空耗——本次 DOM 层一切正常，坑在光栅化。
+- 慢速平移类动画（60s/140s 周期）用 left 驱动完全够，layout 成本可忽略
+  （条带内仅 2 张 img），不必执着于 transform 的"性能最优"教条。
+- ping 环（palis-sonar-ping）同为 transform scale 关键帧，理论上有同样风险，
+  但环不可见窗口透明度 0.015 且与闪烁修复（§25/§53/§54）耦合——未实锤不动它，
+  改 ping 前必须重读那三节。
+
+— 署名：kimi（2026-09-08）
+
+## 57. v0.5.6 月盘硬化：容器静态 transform 移除 + 新旧代码链路排查（2026-09-09，用户「仍然有变形」）
+
+### 57.1 起点
+v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「用户实例是否在跑新代码」
+全链路核查：
+- 插件加载路径：`~/.dsh/profiles/web/node_modules/@dsh-local/palis-theme-panel`
+  是指向 dev 项目的符号链接，重建即生效。
+- 内核 rev 机制（`dsh-client-modules/lib/index.js`）：per-plugin rev =
+  `randomBytes(8) nonce + 计数器`（**每进程随机**），combo rev = 内容哈希
+  （`framedHash`）。重启必换 URL → 磁盘缓存（`cache-control: immutable 1年`）
+  不会跨进程命中旧代码。
+- 实测当前内核（7134）所供 HTML + client.js 均含新代码（palis-fm-pan）。
+- **坑**：宿主内联 CSS（PALIS_CSS）只在内核启动时读盘——插件重建后若不重启
+  内核，Page.reload 只刷新 client.js 注入的 `#palis-theme-css`，造成
+  「内联旧 CSS + 运行时新 CSS」并存的混合态（旧 transform 规则仍生效）。
+  改版后必须重启应用，不能只看页面刷新。
+- 实测矩阵（0.5.5 代码）：活窗口真 GPU DPR 2.73 / 模拟 1.75 / 无头 2.73 /
+  无头 1.75 —— 月盘月坑全部正圆，无法复现用户所报残留变形。
+
+### 57.2 修法（硬化）
+`.pg-flatmoon` 容器的 `transform:translate(50%,-50%)`（静态，但同样把整棵子树
+提升为合成层）改为无 transform 等价定位：
+`right:calc(min(880px,46vw)/-2); top:50%; margin-top:calc(min(880px,46vw)/-2)`。
+注意 margin 百分比相对**容器宽度**而非自身，故必须用 calc 绝对量。
+至此月盘栈（容器/圆窗/条带/贴图/铭牌）零 transform、零合成层——
+整个月盘在页面基绘制层一次光栅化，分数 DPR 下无合成器错位可趁。
+
+### 57.3 验证
+- 重启应用后活窗口实测：容器 `transform:none`、盘 647.4×647.4、
+  盘心压宿主右缘（偏差 0.3px）、垂直居中（0.1px）——与 transform 版像素级一致。
+- 截图目检：盘缘平滑弧线、月坑正圆。
+- 回归全绿：verify-flat / verify-craters / verify-glyphs。
+
+### 57.4 经验
+- 排查「样式没生效/生效一半」先想**多份样式表并存**：本主题有内核内联 +
+  client 运行时注入两份 PALIS_CSS，只刷新其一 = 混合态。
+- Chromium 合成层来源不止动画：`transform`（哪怕静态）、`will-change`、
+  `filter`、`backdrop-filter`、`overflow:hidden+动画后代` 都会分层。
+  分数 DPR 环境下，能被静态布局表达的定位就不要用 transform。
+
+— 署名：kimi（2026-09-09）
+
+## 58. v0.5.7 声纳 ping 环变形修复：CSS scale 动画 → JS 逐帧驱动（2026-09-09，用户「依旧不圆，而且中间扩散出去的声纳波纹也不圆」）
+
+### 58.1 定位
+- 对用户当前截图逐像素测量：月盘轮廓、r=430 点环、蓝色虚线环、月坑、粒子云**全部几何正圆**——静态渲染已健康，残留的「不圆」是**动态过程**的观感。
+- 全主题审计后，唯一还在用合成层 transform 做圆形缩放的元素 = ping 环
+  （`@keyframes palis-sonar-ping` 的 `scale(.05→1)`）。分数 DPR（用户机 2.73）下
+  合成层位图逐帧缩放、周向采样不均，运动中读作"不圆"——与 v0.5.5 月盘
+  变形同一法典（圆形动效零合成层）。
+
+### 58.2 修法
+- `theme-core.ts`：`.palis-sonar i` 删 `transform:scale(.05)` 与
+  `animation:palis-sonar-ping`（含 nth-child 错相 delay、活动态 duration），
+  `@keyframes palis-sonar-ping` 退役；CSS 只留基态尺寸/描边（活动态描边提亮保留）。
+- `client/index.ts`：新增 `PING_EASE`（cubic-bezier(.17,.67,.35,1) 二分求解器）；
+  `orbitFrame` 逐帧驱动三环 `width/height/margin/opacity`——展开曲线、
+  1/3 周期错相、透明度包络（0→pk@9%→0.4·pk@62%→0）、活动态变速
+  （6.4s/.42 ↔ 4s/.60）与原 keyframes 同参复刻。
+- ping 重尺寸机制（§25 阈值门+冻结窗、v0.5.3 不可见窗口落笔）保留，
+  落笔对象从元素样式改为 `pingBaseDs[j]` 数字（三环错相下不存在全环同隐窗口，
+  各环持有自己的基准径，各等自己的不可见窗口换径）。
+
+### 58.3 验证（测试内核 17891 + Electron 探针，桌面版同二进制同分数 DPR 2.73）
+- CSS 层：三环 `animationName:none`、`transform:none`、`border-radius:50%`，
+  样式表内 `palis-sonar-ping` 已不存在。
+- 逐帧采样 8s×3 环共 1440 帧：width≡height（构造等径）零偏差；
+  |Δw|>30 且前后帧均可见的跳变 = 0（周期回绕 868→52.8 发生在 opacity≈0，与原 keyframes 相同）。
+- 包络同参：三环 maxOp=0.42、minOp=0，峰值时刻 1153/3294/5424ms ≈ 1/3 周期错相。
+- 截图目检 + 蓝色像素半径直方图：ping 环（r≈1160 物理 px）分角度半径
+  1158.7–1163.6（±0.2%），正圆。
+- 回归全绿：verify-flat / verify-craters / verify-glyphs / verify-ping-invisible（新 verify-ping-jsdriven）。
+
+### 58.4 交付注记
+- 宿主内联 CSS 只在内核启动时读盘（§57 经验）——**用户必须完全重启应用**，
+  刷新页面会得到新旧 CSS 混合态。
+- 探针基建教训：Windows 下 Electron 窗口被遮挡时页面 visibilityState=hidden、
+  rAF 停火、截图失败——probe-main.js 需加
+  `disable-backgrounding-occluded-windows` / `disable-renderer-backgrounding` /
+  `disable-background-timer-throttling` 三个开关。
+
+— 署名：kimi（2026-09-09）
+
+## 59. 变形终局：A/B 实锤 0.1.2 内核渲染管线，回退 0.1.1（2026-09-09）
+
+### 59.1 决定性 A/B
+- 用户机同主题 v0.5.7：内核 0.1.2-rc.1 = 变形可见；回退 0.1.1-rc.1 = 用户确认
+  「这个版本是没有变形的」。触发点在 0.1.2 内核前端（会话视图 DOM 重构 /
+  根容器新增 position:relative 等改变了合成层判定），不在主题。
+- 反证回顾：0.1.2 下用户截图逐像素测量全圆（月盘盘缘与干净探针 36/45 角度
+  零偏差，离群 4 处=贴图平移相位+前景遮挡；ping 环分角度 ±2% 内）——
+  **静态截图是圆的，变形只存在于 0.1.2 运行时的动态合成路径**，
+  截图抓不到 = 以后此类"截图正常但用户眼见变形"的案子直接怀疑合成器/呈现路径。
+
+### 59.2 回退操作（runtime.tar.gz+marker 置换法的逆操作）
+- resources：runtime.tar.gz(.bak-0.1.1 还原) + runtime-marker.json(0.1.1)，
+  0.1.2 留档 .bak-0.1.2；app.asar 还原 .bak-0.1.31（token 补丁版留档
+  app.asar.bak-token-patch）。
+- 外壳自动解包 EPERM 失败三连：rename runtime→runtime.prev 被锁（**测试内核
+  进程正运行在 runtime 目录里**是锁源——以后换 runtime 前必须先杀干净所有
+  从该目录起的 node 进程）；runtime.prev（0.1.1 原始树）还被 rm 掉了。
+  最终手动解 tar.gz 落位，marker 三方一致后外壳跳过重解包。
+- 冷启动验证：0.1.1 内核 `dsh web:` 无 token 正常就绪，与老外壳配对。
+
+### 59.3 后续悬置
+- 若哪天要回 0.1.2：需先在 0.1.2 下用 CDP LayerTree 对比月盘/ping 环的合成层
+  差异找出具体触发器；主题侧候选还剩 globe canvas 的静态 transform:scale(k)。
+- 桌面端自动更新若装上新 dist（prepare-runtime.ps1 已锁 0.1.2），变形会回归
+  ——更新前先打招呼。
+
+— 署名：kimi（2026-09-09）

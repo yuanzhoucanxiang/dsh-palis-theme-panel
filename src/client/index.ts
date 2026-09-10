@@ -1127,7 +1127,9 @@ function drawWave(lane: WaveLane, t: number, amp: number): void {
  * 与月球同款的 client DOM 层：.palis-sonar 挂到不滚动的根容器 [data-phase]（z-index:-1，
  * 透过滚动体的透明背景可见，轨道线压在其上形成纵深），按背景定位公式反解圆心对位。
  * 三层动效：
- *   ping 扩散（<i>×3，CSS animation，活动门变速）；
+ *   ping 扩散（<i>×3，v0.5.7 起 JS 逐帧写 width/height/margin/opacity——CSS transform:scale
+ *     动画在分数 DPR 下走合成层位图缩放，周向采样不均，运动中读作"不圆"；
+ *     圆形动效零合成层 = v0.5.5 月盘同法典。缓动/错相/活动变速与原 keyframes 同参）；
  *   轨道环旋转（<s>×4：蓝环 r=184 + 灰环 r=348/264/430，与各静态环同径的 mask 虚线环，
  *     JS 逐帧积分角度，ω = speed·(sin+0.6·sin+0.3) 符号自然翻转 = 不规律顺/逆时针交替；
  *     中心圆点/r=30 环/r=96 环已随 v0.5.0/v0.5.1 退役——粒子月球接替星系中心天体位）；
@@ -1190,6 +1192,9 @@ let sonarLastEnsure = 0
 let sonarRings: SonarRing[] = []
 let sonarPlanets: SonarPlanet[] = []
 let sonarDegs: SonarDeg[] = []
+let sonarPings: HTMLElement[] = [] // ping 扩散环 ×3（JS 逐帧驱动，v0.5.7）
+let pingOpacities: number[] = [] // 各环当前相位透明度（重尺寸不可见窗口判定）
+let pingBaseDs: number[] = [] // 各环基准直径（k=1 展开径；逐帧实际径 = pingBaseDs[j]×k，各自在不可见窗口换径）
 let sonarScale = 0
 let sonarLastPingD = 0 // ping 环当前直径（阈值门用）
 let sonarFreezeUntil = 0 // 侧栏过渡期 ping 重尺寸冻结（§25 定案防护；v0.5.2 起只冻 ping，几何/旋转逐帧跟随）
@@ -1199,12 +1204,31 @@ let orbitRaf = 0
 let orbitLast = 0
 let orbitHeat = 0
 
+/** cubic-bezier(.17,.67,.35,1) 求解器（二分逼近）：ping 扩散与原 CSS 动画同款缓动，
+ *  v0.5.7 改 JS 逐帧驱动后须逐帧求值（输入相位进度 x，输出缓动值 y）。 */
+const PING_EASE = ((): (x: number) => number => {
+  const X1 = 0.17, Y1 = 0.67, X2 = 0.35, Y2 = 1
+  const sample = (a1: number, a2: number, t: number): number =>
+    3 * (1 - t) * (1 - t) * t * a1 + 3 * (1 - t) * t * t * a2 + t * t * t
+  return (x: number): number => {
+    let lo = 0, hi = 1
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2
+      if (sample(X1, X2, mid) < x) lo = mid; else hi = mid
+    }
+    return sample(Y1, Y2, (lo + hi) / 2)
+  }
+})()
+
 /** ping 重尺寸排队到各环自己的不可见窗口落笔（v0.5.3）：
- *  §25 定案：6.4s 无限动画元素被改 width/margin 会把插值顶爆成单帧亮闪；
- *  冻结窗+阈值门只压次数，落笔时机仍是随机相位（三环错相 0/2.13/4.27s，
- *  任意时刻大概率有一环可见 → 落定后 ~1s 那次重尺寸用户可见 = 残留闪烁）。
- *  改为：每环等到自己的 opacity≈0（6.4s 循环的 100%→0% 段）才改尺寸——
- *  环完全透明时改尺寸不可见。最坏等待 ≈ 一个循环，期间环径保持前值（无感）。 */
+ *  §25 定案：无限循环的扩散环在可见相位改径 = 用户可见的瞬时跳变；
+ *  冻结窗+阈值门只压次数，落笔时机仍是随机相位（三环错相 1/3 周期，
+ *  任意时刻大概率有一环可见 → 落定后那次重尺寸用户可见 = 残留闪烁）。
+ *  改为：每环等到自己的 opacity≈0（循环 100%→0% 段）才换径——
+ *  环完全透明时换径不可见。最坏等待 ≈ 一个循环，期间环径保持前值（无感）。
+ *  v0.5.7：落笔对象从元素 width/margin 样式变为 pingBaseDs[j] 基准径数字
+ *  （尺寸已由 JS 逐帧重写，不再有 CSS 动画插值可爆），判定机制不变；
+ *  三环不共享不可见窗口（错相 1/3 周期），故各环持有自己的基准径。 */
 function queuePingResize(d: number): void {
   pingPendingD = d
   if (pingResizeTimer !== 0 || sonarEl === null) return
@@ -1212,22 +1236,16 @@ function queuePingResize(d: number): void {
 }
 
 function applyPingResizeWhenInvisible(): void {
-  const el = sonarEl
-  if (el === null || pingPendingD === 0) { stopPingResizeTimer(); return }
-  const want = pingPendingD.toFixed(1)
-  const margin = (-pingPendingD / 2).toFixed(1) + 'px 0 0 ' + (-pingPendingD / 2).toFixed(1) + 'px'
+  if (sonarEl === null || pingPendingD === 0) { stopPingResizeTimer(); return }
   let pending = 0
-  el.querySelectorAll<HTMLElement>('i').forEach((ping) => {
-    if (ping.dataset.pd === want) return
-    if (parseFloat(getComputedStyle(ping).opacity) <= 0.02) {
-      ping.style.width = want + 'px'
-      ping.style.height = want + 'px'
-      ping.style.margin = margin
-      ping.dataset.pd = want
+  for (let j = 0; j < sonarPings.length; j++) {
+    if (pingBaseDs[j] === pingPendingD) continue
+    if ((pingOpacities[j] ?? 0) <= 0.02) {
+      pingBaseDs[j] = pingPendingD // 数字落笔，orbitFrame 下一帧拾取
     } else {
       pending++
     }
-  })
+  }
   if (pending === 0) { pingPendingD = 0; stopPingResizeTimer() }
 }
 
@@ -1246,7 +1264,10 @@ function removeSonar(): void {
   sonarRings = []
   sonarPlanets = []
   sonarDegs = []
-  sonarLastPingD = 0 // 重挂载的是全新 <i>（CSS 默认 760px）——阈值门基数必须清零，否则新环永不定径
+  sonarPings = []
+  pingOpacities = []
+  pingBaseDs = []
+  sonarLastPingD = 0 // 重挂载的是全新 <i>（基态 760px）——阈值门基数必须清零，否则新环永不定径
   pingPendingD = 0
   stopPingResizeTimer()
   sonarEl?.remove()
@@ -1281,12 +1302,12 @@ function layoutSonar(host: HTMLElement): void {
   }
   layoutGlobe(host) // 星系中心天体（月球）同圆心同基准跟随（v0.5.0；v0.5.2 起逐帧跟随不进冻结窗）
   // ping 环定径：保底 760px，超宽屏按 1.1·S 越过最外轨道环（r=430 → 0.86·S）。
-  // 仅增量 >40px 才重尺寸：ping 环是 6.4s 无限动画元素，可见相位改 width/margin
-  // 会把动画插值顶爆成单帧亮闪（WORKLOG 25/27 最终定案）。
+  // 仅增量 >40px 才重尺寸：可见相位的环改径 = 用户可见的瞬时跳变（WORKLOG 25/27 最终定案）。
   // 冻结窗只冻这一段（v0.5.2）：过渡期 ping 几何保持前值。
   // 落笔排队到各环 opacity≈0 的不可见窗口（v0.5.3）：阈值门压次数、冻结窗压时机，
   // 但落定后那次重尺寸仍是随机相位——三环错相下大概率有一环可见（用户仍见闪）；
   // 等不可见窗口落笔后，重尺寸对画面零影响。
+  // v0.5.7：落笔的只是 pingBaseDs[j] 基准径数字（orbitFrame 下一帧拾取），机制不变。
   if (performance.now() < sonarFreezeUntil) return
   const pingD = Math.max(760, 1.1 * s)
   if (Math.abs(sonarLastPingD - pingD) <= 40) return
@@ -1308,6 +1329,27 @@ function orbitFrame(t: number): void {
      双动效同开时不再"疯狂转动"与月球抢戏（2026-08-31 用户反馈：凌乱） */
   const boost = 1 + 1.2 * orbitHeat
   const tt = t / 1000
+  /* ping 扩散环逐帧驱动（v0.5.7：原 CSS animation 同参复刻——cubic-bezier(.17,.67,.35,1)
+     展开曲线、三环 1/3 周期错相、活动态 6.4s→4s/峰值 .42→.60）；
+     逐帧写 width/height/margin/opacity，不走 transform——圆形动效零合成层（v0.5.5 法典）。 */
+  const pingPeriod = waveActive ? 4 : 6.4
+  const pingPk = waveActive ? 0.6 : 0.42
+  for (let j = 0; j < sonarPings.length; j++) {
+    const ph = ((((tt - (j * pingPeriod) / 3) % pingPeriod) + pingPeriod) % pingPeriod) / pingPeriod
+    const k = 0.05 + 0.95 * PING_EASE(ph)
+    const d = (pingBaseDs[j] ?? 760) * k
+    // 透明度包络 = 原 keyframes 分段（段内同款缓动）：0→pk@9% → 0.4·pk@62% → 0@100%
+    let op: number
+    if (ph < 0.09) op = pingPk * PING_EASE(ph / 0.09)
+    else if (ph < 0.62) op = pingPk * (1 - 0.6 * PING_EASE((ph - 0.09) / 0.53))
+    else op = pingPk * 0.4 * (1 - PING_EASE((ph - 0.62) / 0.38))
+    const el = sonarPings[j]
+    el.style.width = d.toFixed(1) + 'px'
+    el.style.height = d.toFixed(1) + 'px'
+    el.style.margin = (-d / 2).toFixed(1) + 'px 0 0 ' + (-d / 2).toFixed(1) + 'px'
+    el.style.opacity = op.toFixed(3)
+    pingOpacities[j] = op
+  }
   for (const r of sonarRings) {
     const w = r.speed * (Math.sin(tt * r.f1 + r.p1) + 0.6 * Math.sin(tt * r.f2 + r.p2) + 0.3)
     r.angle += w * dt * boost
@@ -1376,8 +1418,12 @@ function ensureSonar(): void {
     el.textContent = txt
     return { el, dx, dy }
   })
+  // ping 扩散环 ×3：v0.5.7 起由 orbitFrame 逐帧驱动（尺寸/透明度全在 JS 侧，CSS 只给基态）
+  sonarPings = [document.createElement('i'), document.createElement('i'), document.createElement('i')]
+  pingOpacities = [0, 0, 0]
+  pingBaseDs = [760, 760, 760]
   sonarEl.append(
-    document.createElement('i'), document.createElement('i'), document.createElement('i'),
+    ...sonarPings,
     ...sonarRings.map((r) => r.el),
     ...sonarPlanets.map((p) => p.el),
     ...sonarDegs.map((d) => d.el),

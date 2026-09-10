@@ -809,8 +809,10 @@ export const PALIS_CSS = [
   '.palis-wave{position:absolute;left:-1px;top:-10px;width:calc(100% + 2px);height:18px;pointer-events:none;z-index:6}',
   /* 声纳扩散 + 轨道旋转（client 注入 .palis-sonar，对位轨道图中心；与声线波动条共用
      [data-streaming] 活动门——html[data-palis-activity]）。
-     <i>×3 = ping 扩散环（transform:scale 展开，GPU 友好，--pk 峰值分两态；
-     JS 按 max(760px, 1.1·S) 定径，超宽屏也保证越过最外轨道环）。
+     <i>×3 = ping 扩散环（v0.5.7 起 JS 逐帧写 width/height/margin/opacity，缓动/错相/活动变速
+     与原 CSS 动画同参——transform:scale 动画在分数 DPR 下走合成层位图缩放，周向采样不均，
+     运动中读作"不圆"（v0.5.5 月盘同法典：圆形动效零合成层）；
+     JS 按 max(760px, 1.1·S) 定基准径，超宽屏也保证越过最外轨道环）。
      <s>×4 = 与各轨道环同径的旋转虚线环（蓝环 r=184 + 灰环 r=348/264/430）：
      mask 出虚线圆盖在静态环上 = 原环转了起来，
      厚度/虚线节奏按各环 SVG 参数折算；角度由 JS 逐帧驱动（不规律顺/逆时针交替），CSS 不背 animation。
@@ -818,17 +820,15 @@ export const PALIS_CSS = [
      <u>×9 = 行星节点：接替 ART_ORBIT 抠掉的 8 个静态白点沿原半径公转（内快外慢），
      另加 1 颗 accent 卫星巡蓝环——位置也全由 JS 写。 */
   '.palis-sonar{position:absolute;width:0;height:0;pointer-events:none;z-index:-1}',
+  /* width/height/margin/opacity 由 JS 逐帧覆写，这里只是首帧前的基态（760px 保底径）。
+     禁 transform：圆形动效零合成层（v0.5.5 月盘法典） */
   '.palis-sonar i{position:absolute;left:0;top:0;width:760px;height:760px;margin:-380px 0 0 -380px;',
-  'border:1px solid rgba(79,128,245,.42);border-radius:50%;transform:scale(.05);opacity:0;',
-  'box-shadow:0 0 18px rgba(43,95,217,.16);',
-  '--pk:.42;animation:palis-sonar-ping 6.4s cubic-bezier(.17,.67,.35,1) infinite}',
-  '.palis-sonar i:nth-child(2){animation-delay:2.13s}',
-  '.palis-sonar i:nth-child(3){animation-delay:4.27s}',
+  'border:1px solid rgba(79,128,245,.42);border-radius:50%;opacity:0;',
+  'box-shadow:0 0 18px rgba(43,95,217,.16)}',
   /* 活动态只许"略活跃"：峰值/辉光收敛（0.95→0.60、周期 2.3s→4s）——主角是月球，
-     声纳是观测氛围的配角，双动效同开时二者比重不得对等（2026-08-31 用户反馈：凌乱） */
-  'html[data-palis-activity="on"] .palis-sonar i{--pk:.60;border-color:rgba(79,128,245,.62);animation-duration:4s}',
-  'html[data-palis-activity="on"] .palis-sonar i:nth-child(2){animation-delay:1.33s}',
-  'html[data-palis-activity="on"] .palis-sonar i:nth-child(3){animation-delay:2.67s}',
+     声纳是观测氛围的配角，双动效同开时二者比重不得对等（2026-08-31 用户反馈：凌乱）。
+     v0.5.7：峰值/周期改由 JS orbitFrame 读 waveActive 同参切换，CSS 只留描边提亮 */
+  'html[data-palis-activity="on"] .palis-sonar i{border-color:rgba(79,128,245,.62)}',
   /* 直角模式豁免：声纳环/行星必须保持圆形（全局 border-radius:0 !important 会切方） */
   'html[data-palis-theme][data-palis-square="on"] .palis-sonar i,',
   'html[data-palis-theme][data-palis-square="on"] .palis-sonar u{border-radius:50% !important}',
@@ -859,7 +859,7 @@ export const PALIS_CSS = [
   '.palis-sonar u.d{width:4.5px;height:4.5px;background:rgba(236,236,236,.42)}',
   '.palis-sonar u.a{background:var(--palis-accent);box-shadow:0 0 8px rgba(43,95,217,.5)}',
   'html[data-palis-activity="on"] .palis-sonar u{opacity:.85}',
-  '@keyframes palis-sonar-ping{0%{transform:scale(.05);opacity:0}9%{opacity:var(--pk)}62%{opacity:calc(var(--pk) * .4)}100%{transform:scale(1);opacity:0}}',
+  /* v0.5.7：@keyframes palis-sonar-ping 退役——改 JS 逐帧驱动（见 client/index.ts sonarPings） */
   /* 会话顶部（hero）→ Win95 标题条 */
   'html[data-palis-theme] [data-slot="conversation.hero.agentPreset"] > *{',
   'background:linear-gradient(180deg,#1c1c1c,#101010);border-bottom:1px solid var(--palis-border);',
@@ -911,7 +911,11 @@ export const PALIS_CSS = [
   /* 圆形视窗：月面贴图横向平移 = 舷窗里转动的月球（呼应 PALIS 09A 参考屏的大圆窗） */
   '.palis-boot .pb-port{position:relative;width:380px;height:380px;border-radius:50%;overflow:hidden;border:1px solid rgba(236,236,236,.2);box-shadow:0 0 60px rgba(43,95,217,.08),inset 0 0 40px rgba(0,0,0,.4)}',
   '.palis-boot .pb-moon{position:absolute;left:0;top:0;height:100%;width:200%;max-width:none;opacity:.92;animation:palis-boot-pan 60s linear infinite}',
-  '@keyframes palis-boot-pan{from{transform:translateX(0)}to{transform:translateX(-50%)}}',
+  /* v0.5.5：位移从 transform 改 left 属性动画——transform 产生的合成层在分数 DPR>2
+     （如 2.73）下被合成器光栅化错位，圆形内容横向拉伸 ~1.2×（月盘/月坑变椭圆）；
+     left 走主线程 layout 不产生合成层，各 DPR 下几何一致。pb-moon 宽 200%，
+     -100% 容器位移 = 旧 -50% 自身位移，数学等价 */
+  '@keyframes palis-boot-pan{from{left:0}to{left:-100%}}',
   '.palis-boot .pb-port-ring{position:absolute;inset:12px;border:1px solid rgba(236,236,236,.14);border-radius:50%}',
   /* 直角模式豁免：舷窗与内环是具象图形而非 UI 铬件，必须保持圆形（同 globe/sonar 先例） */
   'html[data-palis-theme][data-palis-square="on"] .palis-boot .pb-port,',
@@ -1087,26 +1091,34 @@ export const PALIS_CSS = [
   '.palis-glyphs .pg-grid .r{background:repeating-linear-gradient(0deg,rgba(236,236,236,.08) 0 1px,transparent 1px 32px)}',
   '.palis-glyphs .pg-grid span{position:absolute;left:0;top:71px;font-size:8px;letter-spacing:.2em;color:rgba(236,236,236,.26);white-space:nowrap}',
   /* ⓪ 平面月盘（v0.4.9）：开机舷窗同款 ART_MOON_MAP 平涂月面（2:1 贴图等高铺满圆窗，
-     横移回绕 = 经度无缝公转，复用 palis-boot-pan 关键帧），右锚半露——
+     横移回绕 = 经度无缝公转，专用 palis-fm-pan 关键帧），右锚半露——
      粒子月球锚左（点云）/ 平面月盘锚右（版画），双月对望的构成对位。
      定位坐标系 = glyphs 根（inset:0 对齐宿主会话区）：右半盘被宿主右缘裁掉，
      与左侧粒子月球被左缘裁切同机理。limb 渐暗 veil（::after 径向罩 + 内阴影）
      让半盘没入背景； glyphs 栈底（首子节点），小件叠盘 = 图纸分层。
      v0.5.2 无缝公转：双副本条带 .fm-strip（宽 400%，各载一整张 2:1 贴图），
-     palis-boot-pan 位移 -50% 条带宽 = 恰好一整张图宽——副本 B 精确顶替副本 A，
+     位移 -200% 容器宽 = -50% 条带宽 = 恰好一整张图宽——副本 B 精确顶替副本 A，
      循环点零跳变（旧单 img 200% 方案循环点内容不连续，每 140s 一帧硬切）。
+     v0.5.5：独立关键帧 palis-fm-pan 并改 left 属性动画（脱离 palis-boot-pan，
+     两者位移量不同：条带 400% 宽需 -200% 容器，pb-moon 200% 宽需 -100%）——
+     transform 合成层在分数 DPR>2 下光栅化错位致月盘横向拉伸（详见 pb-moon 注）。
      RM 静止；直角模式豁免（天体是具象图形，同 globe/sonar 先例） */
-  '.palis-glyphs .pg-flatmoon{position:absolute;right:0;top:50%;width:min(880px,46vw);aspect-ratio:1/1;',
-  'transform:translate(50%,-50%)}',
+  /* v0.5.6：定位弃用 transform:translate(50%,-50%)——静态 transform 同样把整棵月盘子树
+     提升为合成层，分数 DPR 下仍有被合成器光栅化错位的风险（条带 left 动画只修掉一半）。
+     改用无 transform 的等价定位：right 负半程 = 盘心压宿主右缘；margin-top 负半程垂直居中
+     （margin 百分比相对容器宽度，故用 calc 绝对量，不用 %）。整栈零合成层 = 免疫该类变形 */
+  '.palis-glyphs .pg-flatmoon{position:absolute;right:calc(min(880px,46vw)/-2);top:50%;',
+  'margin-top:calc(min(880px,46vw)/-2);width:min(880px,46vw);aspect-ratio:1/1}',
   '.palis-glyphs .pg-flatmoon .fm-disc{position:absolute;inset:0;border-radius:50%;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.14);box-shadow:0 0 70px rgba(43,95,217,.05)}',
   '.palis-glyphs .pg-flatmoon .fm-disc::after{content:"";position:absolute;inset:0;border-radius:50%;',
   'background:radial-gradient(circle at 40% 42%,rgba(5,6,8,0) 42%,rgba(5,6,8,.34) 74%,rgba(5,6,8,.62));',
   'box-shadow:inset 0 0 70px rgba(0,0,0,.45)}',
   '.palis-glyphs .pg-flatmoon .fm-strip{position:absolute;left:0;top:0;height:100%;width:400%;',
-  'opacity:.55;animation:palis-boot-pan 140s linear infinite}',
+  'opacity:.55;animation:palis-fm-pan 140s linear infinite}',
   '.palis-glyphs .pg-flatmoon .fm-strip img{position:absolute;left:0;top:0;height:100%;width:50%;max-width:none}',
   '.palis-glyphs .pg-flatmoon .fm-strip img+img{left:50%}',
+  '@keyframes palis-fm-pan{from{left:0}to{left:-200%}}',
   '@media (prefers-reduced-motion:reduce){.palis-glyphs .pg-flatmoon .fm-strip{animation:none}}',
   '.palis-glyphs .pg-flatmoon .fm-ring{position:absolute;inset:-18px;border:1px solid rgba(236,236,236,.09);border-radius:50%}',
   'html[data-palis-theme][data-palis-square="on"] .palis-glyphs .pg-flatmoon .fm-disc,',

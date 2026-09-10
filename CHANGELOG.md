@@ -1,3 +1,29 @@
+## 0.5.9 — 2026-09-10
+
+把角标与状态栏铭牌的**假数据换成真值**（长期方向：少一点无信息修饰，多一点信息表达）。
+
+**背景**
+- 主题里有一批"长得像在报告状态、其实写死"的标注：左上角标 `SYS//09A-C2`、
+  右上角标下的 `ARCHIVE TERMINAL · REV 09A`（`REV` 看着最像版本号，却与真实版本无关）。
+  对照之下，状态栏的 PHASE/UTC/SCROLL/SES/MDL 早已是 live 数据——本版让角标与铭牌也归队。
+
+**改动**
+- `src/index.ts`：GET `/palis-theme/api` 响应新增 `version`（宿主启动时从随包 package.json
+  读一次自身版本）；为此在 `src/shims.d.ts` 补了最小 node 类型面（本仓 node_modules 不含
+  @types/node）。
+- `src/client/index.ts`：
+  · 新增 `readShellState()`：**特性探测** `window.dshShell.status()`（主题也可能跑在纯浏览器
+    `dsh web` 里，那里没有 preload）——拿不到就返回 null，调用方保留占位，绝不臆造数据。
+  · 左上角标 → `SYS//P<端口> · WS//<工作区目录名>`（外壳 `shell:get-state` 的 port/workspace）。
+  · 状态栏右铭牌 → `SHL <外壳版本> · KRN <内核版本> · REV <主题版本>`，三段各自独立取值，
+    任一段缺失就少显示一段（外壳未更新时只显示 SHL/REV，浏览器环境下只显示 REV）。
+
+**验证**
+- 浏览器上下文（headless Chrome，无 preload）：铭牌显示 `REV 0.5.8`（主题版本经内核 API 取到，
+  真值 ✓），角标保持 `SYS//----` 占位——降级路径符合预期。
+- 真机 Electron（隔离实例 + 进程内截图）：角标 `SYS//P5491 · WS//DL`，
+  铭牌 `SHL 0.1.34 · KRN 0.1.1-rc.1 · REV 0.5.8` 全部为真值。
+
 ## 0.5.8 — 2026-09-10
 
 输入区双写：同一份主题在 0.1.1 与 0.1.5 内核下都生效——主题与内核版本解耦，可独立发布。

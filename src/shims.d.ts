@@ -19,3 +19,17 @@ declare module 'react' {
   export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void
   export function createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): unknown
 }
+
+/**
+ * node 内置模块的最小类型面：本仓库的 node_modules 不含 @types/node（build.sh 只链
+ * cordis / cosmokit / schemastery / dsh-settings / tsdown），而 host 侧要从随包的
+ * package.json 读一次自身版本（供状态栏铭牌做"外壳·内核·主题"三方对账）。
+ * 只声明实际用到的两个函数。将来若装上 @types/node，本段应删除以免重复声明。
+ */
+declare module 'node:fs' {
+  export function readFileSync(path: string, encoding: 'utf8'): string
+}
+
+declare module 'node:url' {
+  export function fileURLToPath(url: URL | string): string
+}

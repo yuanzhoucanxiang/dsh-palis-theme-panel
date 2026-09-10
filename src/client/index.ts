@@ -825,10 +825,45 @@ function ensureFrame(): void {
   el.setAttribute('aria-hidden', 'true')
   el.innerHTML =
     '<i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>' +
-    '<span class="tl-tag">SYS//09A-C2</span>' +
+    '<span class="tl-tag">SYS//----</span>' +
     '<span class="tr-tag">ARCHIVE TERMINAL</span>'
   document.body.prepend(el)
   frameEl = el
+  void paintFrameTag(el) // 左上角标换成真实实例标识；拿不到数据则保留占位，不臆造
+}
+
+/** 左上角标真值：`SYS//P<端口> · WS//<工作区目录名>`（数据来自外壳，见 readShellState）。 */
+async function paintFrameTag(el: HTMLElement): Promise<void> {
+  const tag = el.querySelector('.tl-tag')
+  if (tag === null) return
+  const state = await readShellState()
+  if (state === null) return
+  const parts: string[] = []
+  if (typeof state.port === 'number' && state.port > 0) parts.push('SYS//P' + String(state.port))
+  const ws = String(state.workspace || '').split(/[\\/]/).filter(Boolean).pop() || ''
+  if (ws !== '') parts.push('WS//' + ws.slice(0, 20))
+  if (parts.length > 0) tag.textContent = parts.join(' · ')
+}
+
+/**
+ * 外壳状态（可选依赖）：主题也可能跑在纯浏览器 `dsh web` 里，那里没有 preload 注入的
+ * `window.dshShell`——一律特性探测，拿不到返回 null，由调用方保留静态占位。
+ */
+interface ShellState {
+  version?: string
+  kernelVersion?: string
+  port?: number
+  workspace?: string
+}
+
+async function readShellState(): Promise<ShellState | null> {
+  const shell = (window as unknown as { dshShell?: { status?: () => Promise<ShellState> } }).dshShell
+  if (shell === undefined || typeof shell.status !== 'function') return null
+  try {
+    return (await shell.status()) || null
+  } catch {
+    return null
+  }
 }
 
 function ensureStatusBar(): void {
@@ -851,9 +886,32 @@ function ensureStatusBar(): void {
     '<span id="palis-sb-model"></span>' +
     '<span id="palis-composer-count">LN 000 · CHR 0000</span>' +
     '<span class="sb-live"></span>' +
-    '<span class="sb-ver">ARCHIVE TERMINAL · REV 09A</span>'
+    '<span class="sb-ver"></span>'
   document.body.append(el)
   statusbarEl = el
+  void paintVersionPlate(el) // 右侧铭牌换成"外壳·内核·主题"三方版本真值（此前是写死的 REV 09A）
+}
+
+/**
+ * 右侧铭牌真值：`SHL <外壳版本> · KRN <内核版本> · REV <主题版本>`。
+ * 三段各自独立取值，任一段拿不到就少显示一段（不臆造）——外壳缺席时（纯浏览器 dsh web）
+ * 该铭牌保持空白，而不是显示一个假的版本号。
+ */
+async function paintVersionPlate(el: HTMLElement): Promise<void> {
+  const plate = el.querySelector('.sb-ver')
+  if (plate === null) return
+  const state = await readShellState()
+  let themeVersion = ''
+  try {
+    themeVersion = (await apiGet()).version || ''
+  } catch {
+    /* 主题版本拿不到就少一段 */
+  }
+  const parts: string[] = []
+  if (state !== null && state.version) parts.push('SHL ' + state.version)
+  if (state !== null && state.kernelVersion) parts.push('KRN ' + state.kernelVersion)
+  if (themeVersion !== '') parts.push('REV ' + themeVersion)
+  if (parts.length > 0) plate.textContent = parts.join(' · ')
 }
 
 function ensureCrtSweep(): void {
@@ -1449,12 +1507,17 @@ function scheduleEnsureSonar(): void {
 interface ApiView {
   settings: PalisSettings
   revision: number
+  version?: string
 }
 
 async function apiGet(): Promise<ApiView> {
   const res = await fetch(API_ROUTE, { cache: 'no-store' })
   const json = await res.json()
-  return { settings: normalizeSettings(json?.settings), revision: Number(json?.revision ?? 0) }
+  return {
+    settings: normalizeSettings(json?.settings),
+    revision: Number(json?.revision ?? 0),
+    version: typeof json?.version === 'string' ? json.version : '',
+  }
 }
 
 async function apiPatch(patch: Partial<PalisSettings>): Promise<ApiView | { conflict: true }> {

@@ -1995,3 +1995,18 @@ v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「�
   合成层排查（本轮未定性，记此备查）。
 
 署名：ox-alpha
+
+## 61. 角标/铭牌换真值（2026-09-10）
+
+- 方向：把"无意义的修饰"换成"有信息表达的内容"。主题里有一批假数据标注（SYS//09A-C2、
+  ARCHIVE TERMINAL · REV 09A、TERRAIN // REL 240M 等），而状态栏的 PHASE/UTC/SCROLL/SES/MDL
+  早已是 live——本版先让角标与铭牌归队。
+- 做法：宿主暴露自身版本（GET 响应加 version，从随包 package.json 读）；客户端特性探测
+  window.dshShell（纯浏览器 dsh web 下不存在），拿得到就写真值、拿不到保留占位（不臆造）。
+  左上角标 = SYS//P<端口> · WS//<工作区名>；右铭牌 = SHL · KRN · REV 三段独立、缺则少显示。
+- 验证：浏览器上下文只显示 REV 0.5.8（真值）；真机 Electron 截图显示
+  SYS//P5491 · WS//DL 与 SHL 0.1.34 · KRN 0.1.1-rc.1 · REV 0.5.8。
+- 待办：工作区=主目录时显示成 WS//DL 不够可读，考虑显示 ~ 或末两段；
+  天体上的假标注（TERRAIN // REL 240M 等）与 starfield 无信息闪烁留待后续。
+
+署名：ox-alpha

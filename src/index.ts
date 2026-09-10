@@ -12,6 +12,8 @@
  *  - 设置服务是可选的：缺席时 API 只读默认值、index-inject 不注入（页面回落到官方主题）。
  */
 import type { Context } from 'cordis'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import z from 'schemastery'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import {
@@ -26,6 +28,19 @@ import {
 
 export const name = 'palis-theme-panel'
 export const inject = ['webServer']
+
+/**
+ * 插件自身版本：从随包携带的 package.json 读一次（打包产物里 lib/ 与 package.json 同级）。
+ * 供 client 状态栏铭牌做"外壳·内核·主题"三方对账——此前那里的 REV 是写死的假数据。
+ * 读不到就返回空串，铭牌自动退化为不显示该段。
+ */
+const PLUGIN_VERSION: string = (() => {
+  try {
+    return String(JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version || '')
+  } catch {
+    return ''
+  }
+})()
 
 export const Config = z.object({})
 
@@ -117,7 +132,7 @@ export function apply(ctx: Context): void {
             return
           }
           if (req.method === 'GET') {
-            writeJson(res, 200, { ok: true, settings: settingsOf(), revision: revisionOf() })
+            writeJson(res, 200, { ok: true, settings: settingsOf(), revision: revisionOf(), version: PLUGIN_VERSION })
             return
           }
           if (req.method === 'POST') {

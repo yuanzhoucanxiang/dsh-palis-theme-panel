@@ -797,12 +797,17 @@ export const PALIS_CSS = [
   'border:1px solid var(--palis-border);border-top:2px solid var(--palis-accent);',
   '}',
   'html[data-palis-theme] [data-input-backdrop]{background:#0a0a0a}',
-  'html[data-palis-theme] [data-composer-seat] textarea{',
+  /* 输入区双写：0.1.5 起内核把输入区从 textarea 重构成
+     div[contenteditable][role=textbox][data-composer-input]（实时 DOM 实测：
+     0.1.1 的 backdrop→input、mirror→placeholder、textarea→[role=textbox]），
+     所以同一套规则并列新旧两代选择器——主题因而与内核版本解耦：在 0.1.1 与
+     0.1.5 下都生效，可独立发布，不给现有用户带来回归。 */
+  'html[data-palis-theme] [data-composer-seat] textarea,html[data-palis-theme] [data-composer-input]{',
   'background:#0a0a0a;color:var(--palis-fg);-webkit-text-fill-color:var(--palis-fg);',
   'caret-color:var(--palis-fg);border:1px solid #2e2e2e !important;font-family:inherit;',
   '}',
-  'html[data-palis-theme] [data-composer-seat] textarea::placeholder{color:var(--palis-fg-faint);-webkit-text-fill-color:var(--palis-fg-faint)}',
-  'html[data-palis-theme] [data-composer-seat] textarea:focus{border-color:var(--palis-accent) !important;box-shadow:none}',
+  'html[data-palis-theme] [data-composer-seat] textarea::placeholder,html[data-palis-theme] [data-composer-placeholder]{color:var(--palis-fg-faint);-webkit-text-fill-color:var(--palis-fg-faint)}',
+  'html[data-palis-theme] [data-composer-seat] textarea:focus,html[data-palis-theme] [data-composer-input]:focus{border-color:var(--palis-accent) !important;box-shadow:none}',
   'html[data-palis-theme] [data-input-mirror],html[data-palis-theme] [data-input-scroll]{background:transparent;color:var(--palis-fg);-webkit-text-fill-color:var(--palis-fg)}',
   /* 声线波动条画布（client 注入于 [data-composer-card] 顶边；静默时清空，顶蓝边即静止基线。
      canvas 是替换元素：left+right 拉伸对它无效，必须显式 width 盖过固有尺寸） */

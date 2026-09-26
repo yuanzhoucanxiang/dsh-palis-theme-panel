@@ -45,7 +45,10 @@ echo "=== Linking build/runtime dependencies (checkout: $CHECKOUT) ==="
 mkdir -p node_modules/@deepseek-ai node_modules/.bin
 link_abs cordis "$CHECKOUT/vendor/cordis"
 link_abs cosmokit "$CHECKOUT/vendor/cosmokit"
-link_abs schemastery "$CHECKOUT/vendor/schemastery"
+# schemastery 必须用带 scope 的包名：内核 0.1.7 起 @deepseek-ai/ 是生态唯一写法，
+# 裸名只活在 checkout 的 vendor/ 与旧版插件的依赖树里；装进 profile 后解析不到
+# （实测：裸名 import 让插件在 0.1.7-rc.2 上 failed to import）。来源与 dsh-settings 同。
+link_abs @deepseek-ai/schemastery "$RUNTIME_NM/@deepseek-ai/schemastery"
 link_abs @deepseek-ai/dsh-settings "$RUNTIME_NM/@deepseek-ai/dsh-settings"
 
 # tsdown：完整安装在 dsh-super-injector 的 node_modules（checkout 的 dist 不完整）

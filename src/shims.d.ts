@@ -10,6 +10,25 @@ declare module '@deepseek-ai/dsh-settings' {
 }
 
 /**
+ * 同上：@deepseek-ai/schemastery 只发 lib/index.mjs（无 .d.ts）。
+ * 只声明本插件实际用到的方法面：object / boolean / union / default。
+ */
+declare module '@deepseek-ai/schemastery' {
+  export interface Schema<T> {
+    default(value: T): Schema<T>
+    /** 标记为可热改字段：新内核（0.1.7+ dsh-settings）只把这些字段当设置项。 */
+    volatile(): Schema<T>
+  }
+  export interface Schemastery {
+    object(shape: Record<string, unknown>): Schema<Record<string, unknown>>
+    boolean(): Schema<boolean>
+    union(values: readonly string[]): Schema<string>
+  }
+  const z: Schemastery
+  export default z
+}
+
+/**
  * React 最小类型面（运行时由 shell 提供，仅用于本插件的 tsc 编译；
  * 与 client 侧仅使用 useState/useEffect/createElement 对齐）。
  */

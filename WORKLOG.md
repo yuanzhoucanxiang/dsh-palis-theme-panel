@@ -2080,3 +2080,28 @@ v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「�
 - 工具：渲染探针加 --shot-scale（16px 角标在默认 2× 下太小，量细节要放大）。
 
 署名：ox-alpha
+
+## 66. 内核 0.1.7 适配（0.5.14，2026-09-25）
+
+**背景**：桌面版内核从 0.1.1-rc.1 升到 0.1.7-rc.2，本面板在新内核上**加载即失败**。两处断点都是
+"生态改名/换血"级别，与渲染无关——渲染代码一行没动。
+
+- **裸名 `schemastery` 不再可用**：新内核生态只用 `@deepseek-ai/schemastery`；裸名过去由内置插件树
+  顶层带入（旧 better-sidebar 的依赖），而 better-sidebar 升到 0.21.1 后顶层只剩带 scope 的包 →
+  `import z from 'schemastery'` 直接 failed to import。改法：import / peer / build.sh junction
+  （改为从桌面版运行时取带 scope 的那个）/ shims.d.ts 一并换名。
+- **设置子系统重写（SettingsForms）**：命名空间不再由插件注册，而由「插件行 id + 插件导出的 Config」
+  推出（`describe()` 取 `entry.options.id`）；`register(ns, schema)` 已删；且只有带 `meta.volatile`
+  的字段算设置项——未标注时写入报 `has no volatile fields`。改法：Config = 主题 schema 逐字段
+  `volatile()`；呈现策略 `configure({auto:false}, ctx.fiber)`（面板自带界面，关掉内核自动表单，
+  与 better-sidebar 同款）。
+- **行 id 定为 `palis-theme`**：命名空间在新内核等于行 id，对齐后老用户的既有设置（自 0.1.2 起存在
+  `palis-theme` 下）才能延续，而不是升级后静默回默认值。
+- **向后兼容**：老内核没有 `.volatile()`，按能力分支保留 register 老路。
+- **验证（两条内核都测）**：
+  - 新内核 0.1.7-rc.2：`POST /api/palis-theme` → 200 `{enabled:true}`；桌面版 `verify-render-invariants`
+    → `RENDER_INVARIANTS_OK`（写作区底色 / 装饰层包含块 / 视口锚定 / 圆形宽高 DPR 2.73 /
+    合成层 4 个且含非恒等 transform 0 个）。
+  - 老内核 0.1.1-rc.1：同样 200 `{enabled:true}`（回归）。
+  - 教训：第一版只测了新内核，老内核直接 `field.volatile is not a function`——而 profile 里 palis 是
+    `link:` 指向本地 checkout，"只测新内核"等于把用户正在用的那套弄坏。**内核升级类改动两端都要跑。**

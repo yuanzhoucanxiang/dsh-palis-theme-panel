@@ -14,7 +14,7 @@
 import type { Context } from 'cordis'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import z from 'schemastery'
+import z from '@deepseek-ai/schemastery'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import {
   API_ROUTE,
@@ -42,9 +42,10 @@ const PLUGIN_VERSION: string = (() => {
   }
 })()
 
-export const Config = z.object({})
-
-/** 主题设置 schema（schemastery；与 theme-core 的默认值保持同源）。 */
+/**
+ * 主题设置 schema（schemastery；与 theme-core 的默认值保持同源）。
+ * 0.1.7 起它同时是插件的 Config：新内核用「插件行 id + Config」推导设置命名空间。
+ */
 const ThemeSettingsSchema = z.object({
   enabled: z.boolean().default(DEFAULT_SETTINGS.enabled),
   intensity: z.union(['low', 'mid', 'high']).default(DEFAULT_SETTINGS.intensity),
@@ -58,6 +59,20 @@ const ThemeSettingsSchema = z.object({
   boot: z.boolean().default(DEFAULT_SETTINGS.boot),
   artwork: z.boolean().default(DEFAULT_SETTINGS.artwork),
 })
+
+/** 插件配置 schema：新内核据此（配合插件行的 id）生成设置命名空间与表单。
+ *  0.1.7 的 dsh-settings 只认带 meta.volatile 的字段（volatileForm）：没标注的字段
+ *  既不出现在设置页，也不会被 update 写入——所以逐字段 volatile()（同 better-sidebar）。
+ *  老内核的 schemastery 没有 .volatile()，此时维持原样（Config 空、设置走 register），
+ *  否则会在老内核上 "field.volatile is not a function" 直接挂掉插件。 */
+const firstField: any = Object.values((ThemeSettingsSchema as any).dict ?? {})[0]
+export const Config = typeof firstField?.volatile === 'function'
+  ? z.object(
+      Object.fromEntries(
+        Object.entries((ThemeSettingsSchema as any).dict ?? {}).map(([key, field]: [string, any]) => [key, field.volatile()]),
+      ),
+    )
+  : z.object({})
 
 /** 设置服务面的最小视图（settings 缺席时为 undefined，读默认值/写 503）。 */
 interface SettingsFace {
@@ -101,7 +116,16 @@ export function apply(ctx: Context): void {
     const sctx = sctxRaw as any
     // 0.1.2：settingsNamespace() 帮助函数已删，命名空间直接用小写连字符字符串。
     const ns = SETTINGS_NS
-    sctx.settings.register(ns, ThemeSettingsSchema)
+    // 0.1.7：settings 子系统重写（SettingsForms）——命名空间不再由插件注册，而是由
+    // 「插件行的 id + 插件导出的 Config」推出（见 kernel 的 dsh-settings describe()），
+    // register(ns, schema) 已删。老内核仍走 register；新内核改用呈现策略，schema 由
+    // Config 承担（本包已把 Config 指向 ThemeSettingsSchema）。行 id 见 cordis.patch.yml。
+    if (typeof sctx.settings.register === 'function') {
+      sctx.settings.register(ns, ThemeSettingsSchema)
+    } else if (typeof sctx.settings.configure === 'function') {
+      // 面板自带设置界面 → 关掉内核自动生成的表单（与 better-sidebar 同款策略）。
+      c.effect(() => sctx.settings.configure({ auto: false }, c.fiber), 'palis-theme-panel: settings policy')
+    }
     const view = (): { value?: unknown; revision?: number } => {
       const descriptor = sctx.settings.describe({ redactSecrets: true }).find((candidate: any) => candidate.ns === ns)
       return descriptor === undefined

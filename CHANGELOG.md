@@ -1,3 +1,25 @@
+## 0.5.14 — 2026-09-25
+
+内核 0.1.7 适配：面板在新内核上原本**加载即失败**（`failed to import`）。四处改动，全部实测。
+
+**schemastery 改用带 scope 的包名**
+- 内核 0.1.7 的生态只用 `@deepseek-ai/schemastery`；裸名 `schemastery` 过去是靠内置插件树顶层
+  带进来的，而 better-sidebar 升到 0.21.1 后顶层不再有裸包 → 本面板 import 失败。
+- 同步改：源码 import、`peerDependencies`、`scripts/build.sh` 的 junction（改为从桌面版运行时的
+  `@deepseek-ai/schemastery` 取）、`src/shims.d.ts` 补最小类型面。
+
+**设置接口移植到 SettingsForms**
+- 新内核里命名空间由「**插件行 id + 插件导出的 Config**」推出（`dsh-settings` 的 `describe()` 取
+  `entry.options.id`），`register(ns, schema)` 已删；且只认带 `meta.volatile` 的字段——
+  未标注时写入直接报 `has no volatile fields`。
+- 现在：`Config` = 主题 schema 逐字段 `volatile()`；呈现策略
+  `configure({ auto: false }, ctx.fiber)` 关掉内核自动生成的表单（面板自带设置界面）。
+- 老内核没有 `.volatile()` → 按能力分支保留 register 老路，**双内核都实测 200**。
+
+**插件行 id 定为 `palis-theme`**
+- 命名空间在新内核等于行 id。本面板自 0.1.2 起用的就是 `palis-theme`，把行 id 对齐，
+  老用户的主题开关/强度等设置才能跨内核升级继续生效，而不是静默回到默认值。
+
 ## 0.5.13 — 2026-09-10
 
 边框语言：把散落的线收敛成四种语义，并把四角标升级成"登记标记"。

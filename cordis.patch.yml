@@ -2,9 +2,14 @@
 #
 # This file is the `dsh.bundle.patch` layer of the package: the profile boot
 # merges this patch (a single `insert` of the plugin row) so the kernel mounts
-# the PALIS theme panel plugin. The id matches the plugin's exported `name`
-# (`palis-theme-panel`); the name is the package to load.
+# the PALIS theme panel plugin. The name is the package to load.
+#
+# The id is `palis-theme` on purpose (not the package short name): from kernel
+# 0.1.7 on, a plugin's settings namespace is derived from THIS row id
+# (dsh-settings `describe()` uses entry.options.id), while this panel's settings
+# have lived under `palis-theme` since 0.1.2. Keeping the id aligned carries the
+# user's existing theme settings across the kernel bump.
 - insert:
-    - id: palis-theme-panel
+    - id: palis-theme
       name: '@dsh-local/palis-theme-panel'
       config: {}

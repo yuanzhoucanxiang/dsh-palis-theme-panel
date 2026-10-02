@@ -847,8 +847,10 @@ export const PALIS_CSS = [
   '.palis-sonar{position:absolute;width:0;height:0;pointer-events:none;z-index:-1}',
   /* width/height/margin/opacity 由 JS 逐帧覆写，这里只是首帧前的基态（760px 保底径）。
      禁 transform：圆形动效零合成层（v0.5.5 月盘法典） */
+  /* 内核设计系统契约（dsh-client-ui-theme/corner-shape.css）：全局 * 被设 corner-shape:superellipse(1.5)，
+     会把 border-radius:50% 的圆变成方圆形（月盘实测 n=2.85 超椭圆）——正圆必须按契约配对 corner-shape:round */
   '.palis-sonar i{position:absolute;left:0;top:0;width:760px;height:760px;margin:-380px 0 0 -380px;',
-  'border:1px solid rgba(79,128,245,.42);border-radius:50%;opacity:0;',
+  'border:1px solid rgba(79,128,245,.42);border-radius:50%;corner-shape:round;opacity:0;',
   'box-shadow:0 0 18px rgba(43,95,217,.16)}',
   /* 回声波（v0.5.11）：主波后方 0.62× 半径处的细淡环，让"波"有厚度；不加重辉光 */
   '.palis-sonar i.echo{border-color:rgba(79,128,245,.26);box-shadow:none}',
@@ -881,7 +883,7 @@ export const PALIS_CSS = [
   'mask:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><circle cx=\'50\' cy=\'50\' r=\'47\' fill=\'none\' stroke=\'black\' stroke-width=\'.164\' stroke-dasharray=\'.218 1.201\'/></svg>") center/100% 100% no-repeat}',
   'html[data-palis-activity="on"] .palis-sonar s.g4{opacity:.33}',
   /* 行星节点：JS 逐帧写 transform 沿轨道公转；.d=对角小点带，.a=蓝环 accent 卫星 */
-  '.palis-sonar u{position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;',
+  '.palis-sonar u{position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;corner-shape:round;',
   'background:rgba(236,236,236,.5);box-shadow:0 0 6px rgba(236,236,236,.28);opacity:.78;transition:opacity .4s}',
   '.palis-sonar u.d{width:4.5px;height:4.5px;background:rgba(236,236,236,.42)}',
   '.palis-sonar u.a{background:var(--palis-accent);box-shadow:0 0 8px rgba(43,95,217,.5)}',
@@ -908,7 +910,7 @@ export const PALIS_CSS = [
      自带 HUD 几何层/卫星轨道/live 读数退役（仪器语言由声纳环系接管）── */
   '.palis-globe{position:absolute;left:0;top:0;width:1100px;height:1100px;transform-origin:0 0;',
   'pointer-events:none;z-index:-1;will-change:transform}',
-  '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;overflow:hidden;',
+  '.palis-globe-sphere{position:absolute;inset:100px;border-radius:50%;corner-shape:round;overflow:hidden;',
   'border:1px solid var(--palis-line-inset);',
   'box-shadow:inset 0 0 60px rgba(0,0,0,.35),0 0 90px rgba(43,95,217,.05)}',
   '.palis-globe-canvas{position:absolute;inset:0;width:100%;height:100%}',
@@ -932,14 +934,14 @@ export const PALIS_CSS = [
   ".palis-boot::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.55));pointer-events:none}",
   '.palis-boot>*{position:relative;z-index:1}',
   /* 圆形视窗：月面贴图横向平移 = 舷窗里转动的月球（呼应 PALIS 09A 参考屏的大圆窗） */
-  '.palis-boot .pb-port{position:relative;width:380px;height:380px;border-radius:50%;overflow:hidden;border:1px solid rgba(236,236,236,.2);box-shadow:0 0 60px rgba(43,95,217,.08),inset 0 0 40px rgba(0,0,0,.4)}',
+  '.palis-boot .pb-port{position:relative;width:380px;height:380px;border-radius:50%;corner-shape:round;overflow:hidden;border:1px solid rgba(236,236,236,.2);box-shadow:0 0 60px rgba(43,95,217,.08),inset 0 0 40px rgba(0,0,0,.4)}',
   '.palis-boot .pb-moon{position:absolute;left:0;top:0;height:100%;width:200%;max-width:none;opacity:.92;animation:palis-boot-pan 60s linear infinite}',
   /* v0.5.5：位移从 transform 改 left 属性动画——transform 产生的合成层在分数 DPR>2
      （如 2.73）下被合成器光栅化错位，圆形内容横向拉伸 ~1.2×（月盘/月坑变椭圆）；
      left 走主线程 layout 不产生合成层，各 DPR 下几何一致。pb-moon 宽 200%，
      -100% 容器位移 = 旧 -50% 自身位移，数学等价 */
   '@keyframes palis-boot-pan{from{left:0}to{left:-100%}}',
-  '.palis-boot .pb-port-ring{position:absolute;inset:12px;border:1px solid rgba(236,236,236,.14);border-radius:50%}',
+  '.palis-boot .pb-port-ring{position:absolute;inset:12px;border:1px solid rgba(236,236,236,.14);border-radius:50%;corner-shape:round}',
   /* 直角模式豁免：舷窗与内环是具象图形而非 UI 铬件，必须保持圆形（同 globe/sonar 先例） */
   'html[data-palis-theme][data-palis-square="on"] .palis-boot .pb-port,',
   'html[data-palis-theme][data-palis-square="on"] .palis-boot .pb-port-ring{border-radius:50% !important}',
@@ -1114,6 +1116,16 @@ export const PALIS_CSS = [
      v0.5.5：独立关键帧 palis-fm-pan 并改 left 属性动画（脱离 palis-boot-pan，
      两者位移量不同：条带 400% 宽需 -200% 容器，pb-moon 200% 宽需 -100%）——
      transform 合成层在分数 DPR>2 下光栅化错位致月盘横向拉伸（详见 pb-moon 注）。
+     v0.5.15：双 img 退役——实测间歇出现其中一张 img 不被光栅化（巨大 SVG 的
+     离屏瓦片被浏览器丢弃），月面被一条笔直竖缝齐切、极端时整月消失（用户截图
+     取证：剪影 = 圆 ∩ 竖直半平面，缝左可见星空穿透）。改单 background +
+     repeat-x 原生平铺（单图无瓦片缝），background-position-x 动画只重绘不重排；
+     位移量：position 0%→200% = -(图宽-容器宽)×2 = -2 容器宽 = 恰好一整张 2:1 图宽，
+     循环点零跳变，方向与旧 left 方案一致（画面左移）。
+     v0.5.16：0.5.15 未愈（用户复测竖缝仍在）——病灶不是 img 元素而是「活的
+     feTurbulence SVG 被分块光栅化」，background 路径同病。客户端启动时把贴图
+     一次性预渲染成 4096×2048 PNG 位图并换到本条带（client/index.ts
+     prerenderMoonMap）；此处 SVG background 保留为首帧与失败回退。
      RM 静止；直角模式豁免（天体是具象图形，同 globe/sonar 先例） */
   /* v0.5.6：定位弃用 transform:translate(50%,-50%)——静态 transform 同样把整棵月盘子树
      提升为合成层，分数 DPR 下仍有被合成器光栅化错位的风险（条带 left 动画只修掉一半）。
@@ -1121,18 +1133,17 @@ export const PALIS_CSS = [
      （margin 百分比相对容器宽度，故用 calc 绝对量，不用 %）。整栈零合成层 = 免疫该类变形 */
   '.palis-glyphs .pg-flatmoon{position:absolute;right:calc(min(880px,46vw)/-2);top:50%;',
   'margin-top:calc(min(880px,46vw)/-2);width:min(880px,46vw);aspect-ratio:1/1}',
-  '.palis-glyphs .pg-flatmoon .fm-disc{position:absolute;inset:0;border-radius:50%;overflow:hidden;',
+  '.palis-glyphs .pg-flatmoon .fm-disc{position:absolute;inset:0;border-radius:50%;corner-shape:round;overflow:hidden;',
   'border:1px solid rgba(236,236,236,.14);box-shadow:0 0 70px rgba(43,95,217,.05)}',
-  '.palis-glyphs .pg-flatmoon .fm-disc::after{content:"";position:absolute;inset:0;border-radius:50%;',
+  '.palis-glyphs .pg-flatmoon .fm-disc::after{content:"";position:absolute;inset:0;border-radius:50%;corner-shape:round;',
   'background:radial-gradient(circle at 40% 42%,rgba(5,6,8,0) 42%,rgba(5,6,8,.34) 74%,rgba(5,6,8,.62));',
   'box-shadow:inset 0 0 70px rgba(0,0,0,.45)}',
-  '.palis-glyphs .pg-flatmoon .fm-strip{position:absolute;left:0;top:0;height:100%;width:400%;opacity:var(--palis-moon-lift);',
-  'opacity:.55;animation:palis-fm-pan 140s linear infinite}',
-  '.palis-glyphs .pg-flatmoon .fm-strip img{position:absolute;left:0;top:0;height:100%;width:50%;max-width:none}',
-  '.palis-glyphs .pg-flatmoon .fm-strip img+img{left:50%}',
-  '@keyframes palis-fm-pan{from{left:0}to{left:-200%}}',
+  '.palis-glyphs .pg-flatmoon .fm-strip{position:absolute;inset:0;opacity:var(--palis-moon-lift);',
+  'opacity:.55;animation:palis-fm-pan 140s linear infinite;',
+  'background:url("data:image/svg+xml;utf8,' + ART_MOON_MAP + '") repeat-x 0% 0%/200% 100%}',
+  '@keyframes palis-fm-pan{from{background-position-x:0%}to{background-position-x:200%}}',
   '@media (prefers-reduced-motion:reduce){.palis-glyphs .pg-flatmoon .fm-strip{animation:none}}',
-  '.palis-glyphs .pg-flatmoon .fm-ring{position:absolute;inset:-18px;border:1px solid rgba(236,236,236,.09);border-radius:50%}',
+  '.palis-glyphs .pg-flatmoon .fm-ring{position:absolute;inset:-18px;border:1px solid rgba(236,236,236,.09);border-radius:50%;corner-shape:round}',
   'html[data-palis-theme][data-palis-square="on"] .palis-glyphs .pg-flatmoon .fm-disc,',
   'html[data-palis-theme][data-palis-square="on"] .palis-glyphs .pg-flatmoon .fm-disc::after,',
   'html[data-palis-theme][data-palis-square="on"] .palis-glyphs .pg-flatmoon .fm-ring{border-radius:50% !important}',
@@ -1168,7 +1179,7 @@ export const PANEL_CSS = [
   '.ptp-titlebar .ptp-min.blue{border-color:#1c3f8f;background:#2b5fd9}',
   '.ptp-body{padding:14px 14px 10px}',
   '.ptp-status{display:flex;gap:10px;align-items:center;font-size:11px;letter-spacing:.14em;color:#5c5c5c;margin-bottom:12px}',
-  '.ptp-dot{width:8px;height:8px;border-radius:50%;background:#c8322b;box-shadow:0 0 6px rgba(200,50,43,.8);flex:none}',
+  '.ptp-dot{width:8px;height:8px;border-radius:50%;corner-shape:round;background:#c8322b;box-shadow:0 0 6px rgba(200,50,43,.8);flex:none}',
   '.ptp-dot.on{background:#2b5fd9;box-shadow:0 0 8px rgba(43,95,217,.9)}',
   '.ptp-power{display:flex;align-items:center;gap:10px;border:1px solid #333;background:#0d0d0d;padding:10px 12px;margin-bottom:14px;cursor:pointer;width:100%;color:#e8e8e8;font-family:inherit;font-size:12px}',
   '.ptp-power:hover{border-color:#2b5fd9}',

@@ -145,6 +145,7 @@ function applySettings(next: PalisSettings, opts?: { allowBoot?: boolean }): voi
   applyAttributes(next, document.documentElement)
   if (next.enabled) ensureThemeCss()
   else dropThemeCss()
+  if (next.enabled) void prerenderMoonMap() // 尽早启动月面位图预渲染，赶在月盘/舷窗亮相前
   if (next.enabled && (opts?.allowBoot ?? next.boot) && !bootPlayed && !waveReducedMotion()) {
     // 开机自检（reduced-motion 下整段跳过）。内部先取真凭实据再播放，故为异步 fire-and-forget
     bootPlayed = true
@@ -675,6 +676,42 @@ function edgeStreamText(): string {
   return copy + copy
 }
 
+/* ═══ 月面贴图位图预渲染（v0.5.16）═══
+ * ART_MOON_MAP 是多层 feTurbulence/位移/蒙版的巨型 SVG。直接作 <img>/background 时
+ * 浏览器按瓦片光栅化这张 4800×2400 级（DPR 2.73）的滤镜图，离屏/内存压力下瓦片被
+ * 丢弃且不补画 → 月面被笔直竖缝齐切、极端时整月消失（用户实机截图两次取证；
+ * v0.5.15 双 img→单 background 未愈，证明病灶在「活的 SVG 滤镜光栅」而非 img 元素）。
+ * 启动时一次性 drawImage 进 4096×2048 画布转 PNG blob——位图解码一次、平铺只是复制，
+ * 是浏览器最稳的渲染路径。任何一步失败都回退原 SVG（现状），不阻断主题。
+ * 同路径已被点云引擎验证：它用同款 drawImage+getImageData 采样该 SVG（不污染画布）。 */
+let moonPngUrl: string | null = null
+let moonPngInflight: Promise<string | null> | null = null
+function prerenderMoonMap(): Promise<string | null> {
+  if (moonPngUrl !== null) return Promise.resolve(moonPngUrl)
+  if (moonPngInflight !== null) return moonPngInflight
+  moonPngInflight = new Promise<string | null>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas')
+        cv.width = 4096
+        cv.height = 2048
+        const cx = cv.getContext('2d')
+        if (cx === null) { resolve(null); return }
+        cx.drawImage(img, 0, 0, 4096, 2048)
+        cv.toBlob((b) => {
+          if (b === null) { resolve(null); return }
+          moonPngUrl = URL.createObjectURL(b)
+          resolve(moonPngUrl)
+        }, 'image/png')
+      } catch { resolve(null) }
+    }
+    img.onerror = () => resolve(null)
+    img.src = 'data:image/svg+xml;utf8,' + ART_MOON_MAP
+  })
+  return moonPngInflight
+}
+
 function buildGlyphs(): HTMLDivElement {
   const root = document.createElement('div')
   root.className = 'palis-glyphs'
@@ -689,18 +726,12 @@ function buildGlyphs(): HTMLDivElement {
   fmRing.className = 'fm-ring'
   const fmDisc = document.createElement('div')
   fmDisc.className = 'fm-disc'
-  // v0.5.2 无缝公转：单 img 宽 200% 时 translateX(-50%) 只走过半张图，
-  // 循环点左/右半图内容不同 = 每 140s 一帧硬切。改双副本条带（宽 400%，
-  // 各载一整张 2:1 贴图），位移一整张图宽 = 副本 B 精确顶替副本 A，无缝回绕。
+  // v0.5.15：双 img 条带退役（间歇掉瓦片 → 竖缝/整月消失），改单 background + repeat-x。
+  // v0.5.16：background 的图源仍是活 SVG（同病）——就绪后换成预渲染 PNG 位图。
   const fmStrip = document.createElement('div')
   fmStrip.className = 'fm-strip'
-  for (let i = 0; i < 2; i++) {
-    const fmImg = document.createElement('img')
-    fmImg.alt = ''
-    fmImg.src = 'data:image/svg+xml;utf8,' + ART_MOON_MAP
-    fmStrip.appendChild(fmImg)
-  }
   fmDisc.appendChild(fmStrip)
+  void prerenderMoonMap().then((u) => { if (u !== null) fmStrip.style.backgroundImage = `url("${u}")` })
   // ① 月面铭牌（v0.5.0 迁上平面月盘，回归参考图「标题在月面上」构图）：
   //    球体已迁入星系中心（盘面小、多被内容覆盖），铭牌改挂平面月盘的可视半盘
   //    （左四分之一位 = 露出半区的中心），常驻静态（不再有揭示滑动）。
@@ -1590,6 +1621,8 @@ async function playBoot(): Promise<void> {
   moon.className = 'pb-moon'
   moon.alt = ''
   moon.src = 'data:image/svg+xml;utf8,' + ART_MOON_MAP
+  // v0.5.16：舷窗同换预渲染位图（SVG 活滤镜光栅掉瓦片的免疫路径，见 prerenderMoonMap 注）
+  void prerenderMoonMap().then((u) => { if (u !== null && moon.isConnected) moon.src = u })
   const portRing = document.createElement('i')
   portRing.className = 'pb-port-ring'
   const portCross = document.createElement('u')

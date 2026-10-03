@@ -683,13 +683,24 @@ function edgeStreamText(): string {
  * v0.5.15 双 img→单 background 未愈，证明病灶在「活的 SVG 滤镜光栅」而非 img 元素）。
  * 启动时一次性 drawImage 进 4096×2048 画布转 PNG blob——位图解码一次、平铺只是复制，
  * 是浏览器最稳的渲染路径。任何一步失败都回退原 SVG（现状），不阻断主题。
- * 同路径已被点云引擎验证：它用同款 drawImage+getImageData 采样该 SVG（不污染画布）。 */
-let moonPngUrl: string | null = null
+ * 同路径已被点云引擎验证：它用同款 drawImage+getImageData 采样该 SVG（不污染画布）。
+ * v0.5.18：预渲染产物缓存挂 globalThis——HMR 热重载（dsh-client-hmr 的 entries.reload）
+ * 会销毁并重建整个模块实例，模块级缓存随之清零；实测重建后新月盘在 SVG 回退态暴露
+ * 10–20s（预渲染重算期间），恰是"整月消失"病窗口。blob URL 同文档内跨模块实例有效，
+ * 挂全局让重载后的月盘微任务内直接拿到现成 PNG，零 SVG 窗口。
+ * 另：失败路径清空 inflight 供调用侧重试（此前失败后永久钉死在 SVG 回退）。 */
+const MOON_PNG_CACHE_KEY = '__palisMoonPngUrl'
+function readMoonPngCache(): string | null {
+  const v = (globalThis as Record<string, unknown>)[MOON_PNG_CACHE_KEY]
+  return typeof v === 'string' ? v : null
+}
 let moonPngInflight: Promise<string | null> | null = null
 function prerenderMoonMap(): Promise<string | null> {
-  if (moonPngUrl !== null) return Promise.resolve(moonPngUrl)
+  const cached = readMoonPngCache()
+  if (cached !== null) return Promise.resolve(cached)
   if (moonPngInflight !== null) return moonPngInflight
   moonPngInflight = new Promise<string | null>((resolve) => {
+    const fail = (): void => { moonPngInflight = null; resolve(null) }
     const img = new Image()
     img.onload = () => {
       try {
@@ -697,16 +708,17 @@ function prerenderMoonMap(): Promise<string | null> {
         cv.width = 4096
         cv.height = 2048
         const cx = cv.getContext('2d')
-        if (cx === null) { resolve(null); return }
+        if (cx === null) { fail(); return }
         cx.drawImage(img, 0, 0, 4096, 2048)
         cv.toBlob((b) => {
-          if (b === null) { resolve(null); return }
-          moonPngUrl = URL.createObjectURL(b)
-          resolve(moonPngUrl)
+          if (b === null) { fail(); return }
+          const url = URL.createObjectURL(b)
+          ;(globalThis as Record<string, unknown>)[MOON_PNG_CACHE_KEY] = url
+          resolve(url)
         }, 'image/png')
-      } catch { resolve(null) }
+      } catch { fail() }
     }
-    img.onerror = () => resolve(null)
+    img.onerror = fail
     img.src = 'data:image/svg+xml;utf8,' + ART_MOON_MAP
   })
   return moonPngInflight
@@ -728,10 +740,20 @@ function buildGlyphs(): HTMLDivElement {
   fmDisc.className = 'fm-disc'
   // v0.5.15：双 img 条带退役（间歇掉瓦片 → 竖缝/整月消失），改单 background + repeat-x。
   // v0.5.16：background 的图源仍是活 SVG（同病）——就绪后换成预渲染 PNG 位图。
+  // v0.5.18：换图带失败重试（3 次，2.5s 间隔）——预渲染偶发失败（内存压力下 toBlob
+  //   返回 null 等）此前会把月盘永久钉在 SVG 回退（=掉瓦片病窗口常驻）；元素已被
+  //   摘掉（重挂/热重载）时停止重试，由新元素的驱动接管。
   const fmStrip = document.createElement('div')
   fmStrip.className = 'fm-strip'
   fmDisc.appendChild(fmStrip)
-  void prerenderMoonMap().then((u) => { if (u !== null) fmStrip.style.backgroundImage = `url("${u}")` })
+  const driveMoonSwap = (attempt: number): void => {
+    void prerenderMoonMap().then((u) => {
+      if (!fmStrip.isConnected) return
+      if (u !== null) { fmStrip.style.backgroundImage = `url("${u}")`; return }
+      if (attempt < 3) window.setTimeout(() => driveMoonSwap(attempt + 1), 2500)
+    })
+  }
+  driveMoonSwap(0)
   // ① 月面铭牌（v0.5.0 迁上平面月盘，回归参考图「标题在月面上」构图）：
   //    球体已迁入星系中心（盘面小、多被内容覆盖），铭牌改挂平面月盘的可视半盘
   //    （左四分之一位 = 露出半区的中心），常驻静态（不再有揭示滑动）。
@@ -1984,6 +2006,8 @@ export function apply(ctx: ClientContext): void {
       window.removeEventListener('keydown', hotkey, true)
       floatBtn?.remove()
       floatBtn = null
+      window.clearInterval(settingsPoll)
+      settingsPoll = 0
       globeObserver?.disconnect()
       globeObserver = null
       moonRevealObserver?.disconnect()
@@ -2023,3 +2047,6 @@ export function apply(ctx: ClientContext): void {
     'palis-theme-panel: settings panel',
   )
 }
+
+
+

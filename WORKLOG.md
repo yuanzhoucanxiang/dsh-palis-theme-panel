@@ -2216,3 +2216,84 @@ v0.5.5（条带 left 动画）落码后用户仍报右侧月盘变形。沿「�
   东西（预渲染产物、重资源句柄）都应挂 globalThis 或随 DOM 元素走。
 
 署名：kimi
+
+## 70. 主题变体系统：LUMEN 三主题移植（0.6.0，2026-10-11）
+
+- **需求**：用户参考 LUMEN 图库（`E:\类eagle搭建`，类 Eagle 素材管理器）的三套主题，
+  给 dsh 桌面版（本插件承载的 web UI 换肤层）再做几个主题。
+- **调研**：LUMEN 主题注册表在 `src/renderer/src/theme.ts`（silver-gelatin 银盐鸦影 RA–01 /
+  pixel-glitch 像素故障 PX–03.1 / cyber-glitch 信号故障 PX–02R），palette 从
+  `index.css`（silver 默认主题两套 :root）与 `pixel-theme.css` / `cyber-theme.css` 的
+  `:root[data-theme=...]` 块逐色取出。
+- **设计决策**：不做「多个互斥主题包」，做「一台终端、多套信号源」——PALIS 的
+  终端骨架（CRT 三层/开机自检/声纳/月盘/状态栏/标签系统）不变，信号源（palette +
+  签名色）可切换。新设置字段 `variant`，`data-palis-variant` 常驻 `<html>`：
+  切换 = 改一个属性，零 CSS 增删（与 intensity 档位同一机理，天然零闪烁）。
+- **零回归约束**：基座规则一行未改。变体块全部追加在 PALIS_CSS 末尾，选择器 =
+  基座同款 + `[data-palis-variant="x"]` 一个属性位 → 特异性恒胜、源码序恒后。
+  默认 variant=palis 下渲染与 0.5.18 完全一致。每变体三层：① body 全量 dsw 令牌
+  （与基座同键）→ ② html 级私有令牌（--palis-accent/--palis-w1..3/--palis-line-*）→
+  ③ 签名件（基座写死 `#2b5fd9`/`rgba(43,95,217,*)`/`#6f9cff`/`#7a97e8` 的 ~25 处：
+  消息轨/代码/链接/引用/表头/列表标记/开机层/状态栏/声纳环/播放头/月盘辉光/选区/
+  滚动条/CRT 内沿 glow/hero 网格/数据流/月面铭牌 em）。
+- **签名差异**（不止换色）：silver 标题衬线（相纸背签/档案卡语言）；pixel 标题窄体
+  无衬线 + 对话区 4px 抖动点阵（--archive-dither 肌理）；cyber 连边框语言都带青色
+  （border-l1..l4 换青色调），洋红只做校验位（[CMD]/LIVE/err）。
+- **面板**：THEME 行（ptp-preset 行式复用）：色票（.ptp-chip，四色变体身份色，常量
+  不随换肤）+ 编号段选 09A/RA–01/PX–03.1/PX–02R，title 出全称释义。面板自身
+  （浮钮/段选 sel/toggle 选中/日志 accent/titlebar min/POWER key）挂
+  `html[data-palis-variant]` 同步跟随——主题关断时也成立（属性常驻）。
+- **顺修**：状态栏 TAPE//END 写死 `#6f9cff` → `var(--palis-accent-bright)`（基座与各
+  变体都补了这枚亮档令牌；元素在 body 子树内，取 body 级私有令牌）。
+- **自动跟随未覆盖**：走 var() 的规则（[USER]/[STEER] 标签色、composer 顶边、
+  声纳卫星 u.a、波形条 waveAccent() 读 html 级 --palis-accent、:focus-visible 描边）
+  与具象图形（月盘点云/星尘/贴图——天体是具象图形，各变体共用中性月貌）。
+
+署名：Kimi Code（k3-256k）
+
+## 71. 官方 DSH 0.2.2-rc.5 兼容性实测：插件无需改动即可用（0.6.0，2026-11-21）
+
+- **起因**：用户问「我们之前做的那个主题可以适配官方 dsh 吗」，选择先实测。
+  此前只在 dsh-desktop 自带的内核线（0.1.x）上验证过，官方 0.2.x 是**另一个大版本**。
+- **方法**：起一个**最小干净 profile** 的隔离 `dsh web`，只挂 `dsh-base + dsh-web-app +
+  @dsh-local/palis-theme-panel`，用官方 Electron 运行时的 `ELECTRON_RUN_AS_NODE=1`
+  跑 `@deepseek-ai/dsh/lib/bin.js web --port 18399`，再用零依赖 CDP（headless Chrome）
+  做契约与视觉验证（`E:\Deepseek harness\verify-palis-official*.mjs`）。
+- **结果：全部通过，插件代码一行没改**：
+  - 装载：stderr **无任何** version/peer/require 报错（裸 `cordis` / `@deepseek-ai/schemastery`
+    的 peerDependencies 声明**没有挡住**官方内核装载——内核对第三方 bundle 校验的是
+    `dsh.requirements`，不是 peerDependencies；`dsh-pet` 被拦是因为它自己声明了 requirements）
+  - 首帧注入（零闪烁）：`index.html` 里 `data-palis-theme` ×255、`data-palis-intensity` ×4、
+    `feTurbulence` ×4、`#2b5fd9` ×10、`#c8322b` ×8；boot 脚本 settings 完整下发
+  - 令牌作用域：**在 `body` 上**（不是 `:root`）——
+    `--dsw-alias-bg-base=#0a0a0a`、`--dsw-alias-label-primary=#ececec`、
+    `--dsw-alias-brand-primary=#2b5fd9`、`--palis-accent=#2b5fd9` ✓
+    （踩过：从 `documentElement` 读会得到空串，误判成"令牌没生效"）
+  - CRT 三层全在：`html::before` = SVG feTurbulence 噪点 data-URI、`html::after` =
+    repeating-linear-gradient 扫描线、`body::after` = radial-gradient 暗角
+  - 直角/等宽：`0/26` 个按钮有圆角、`body` 圆角 `0px`、字体栈 = JetBrains Mono 全链
+  - 语义标签：造 `[data-chat-flow-kind=user]` 探针元素 → `::before` content=`"[USER]"`、
+    color=`rgb(43,95,217)`、display=`block` ✓（内核语义属性在 0.2.x 里仍然有效）
+  - 设置面板：官方「设置」左栏出现 **`PALIS 主题`**，点开 `.ptp-page` 渲染
+    `564×525`，POWER/PRESET(CRT·MAX·TERMINAL·BARE)/四变体(09A·RA-01·PX-03.1·PX-02R)/
+    CRT 强度(LOW·MID·HIGH)/渲染层 4 开关/风格 5 开关 + `BOOT STATE LOADED · rev 3` 全在
+  - 页面零 JS 报错（Runtime.exceptionThrown / console.error 均无）
+- **反向验证（意外但有效）**：探针误点浮钮 → 主题关闭并**持久化**，重载后 boot 脚本
+  正确地不再注入 CSS、面板显示 `○ 未接入 / OFFLINE`、`POWER` 为 off —— 开关链路与
+  持久化都是通的（不是"只能开不能关"）。
+- **在真实 profile 上的落地**：`~/.dsh/profiles/web/cordis.patch.yml` 里
+  `enabled: false → true`（备份 `cordis.patch.yml.bak-palis-20261121`）。该 profile
+  没有 `settings.yaml`，所以 patch 里的值就是生效初始值。
+- **仍未做 / 已发现的边界**：
+  - `desktop` profile（桌面版 App 正在用的那个）**没装本插件**，所以 App 里的页面仍是
+    官方主题；dsh-desktop 另有一套**外壳侧** PALIS（splash + 审阅侧栏 + 浮层 + 内核令牌），
+    两者不是同一实现，别混淆
+  - 隔离 HOME 无凭据 → 登录弹窗挡路，只能绕道账号菜单进设置；这不影响插件
+  - 打包产物落后：仓库里最新 tgz 仍 `0.5.14`，源码已 `0.6.0`；npm/市场分发前要重新打包
+    且去掉 `private: true`
+- **踩坑**：`robocopy /XJ` 会跳过 junction，导致复制出来的 profile 里插件"不存在"
+  （报 `cannot resolve profile bundle`）；`ProcessStartInfo` 里 `RedirectStandardOutput=true`
+  却**不读**管道 → 缓冲区满了子进程直接阻塞，端口永远不开。修法：`Start-Process
+  -RedirectStandardOutput <file>` 落文件，或异步读。
+
+署名：deepseek-v4.1-flash
